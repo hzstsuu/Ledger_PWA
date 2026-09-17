@@ -178,7 +178,21 @@ main{flex:1;min-width:0;padding:28px 30px 100px 30px;max-width:920px;}
   border:1px solid var(--card-line);
   position:relative;
 }
-.walletcard .wlabel{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;opacity:.75;}
+.walletcard .wlabel{
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  gap:7px;
+
+  font-size:11.5px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.05em;
+  opacity:.75;
+
+  white-space:nowrap;
+  line-height:1.2;
+}
 .walletcard .wamt{font-family:'IBM Plex Mono',monospace;font-size:21px;font-weight:600;margin-top:6px;white-space:nowrap;}
 .nowrap-amount{white-space:nowrap;display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
 .walletcard.allowance{background:var(--allowance-bg);color:var(--allowance);}
@@ -1871,10 +1885,16 @@ function dashboardPage(){
     <div class="sub">${niceDateFull(t)}</div>
   </div>
 
-  <div class="hero">
-    <div class="eyebrow">Total Money</div>
-    <div class="amount mono nowrap-amount">${maskedFmt(totalMoney(),'total')} ${eyeToggle('total','font-size:16px;vertical-align:middle;')}</div>
+<div class="hero">
+  <div class="eyebrow">
+    <span>Total Money</span>
+    ${eyeToggle('total')}
   </div>
+
+  <div class="amount mono nowrap-amount">
+    ${maskedFmt(totalMoney(),'total')}
+  </div>
+</div>
 
   <div class="walletrow">
     <div class="walletcard allowance"><div class="wlabel">Funds ${eyeToggle('funds')}</div><div class="wamt nowrap-amount">${maskedFmt(computeFundsBalance(),'funds')}</div></div>
