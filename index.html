@@ -1,0 +1,3665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Ledger — Student Budget Tracker</title>
+<meta name="theme-color" content="#16261F">
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ledger">
+<meta name="description" content="Ledger — a student budget tracker for allowance, scholar allowance, and school-day budgeting.">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%2316261F'/%3E%3Crect x='24' y='24' width='52' height='52' rx='10' fill='%23E8A33D'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%2316261F'/%3E%3Crect x='24' y='24' width='52' height='52' rx='10' fill='%23E8A33D'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F1F3EC;
+  --paper-alt:#FFFFFF;
+  --card-line:#DCE2D5;
+  --ink:#16261F;
+  --ink-soft:#5B6B60;
+  --ink-faint:#8B978C;
+  --accent:#E8A33D;
+  --accent-ink:#5C3B0A;
+  --allowance:#2F6F4E;
+  --allowance-bg:#E4F0E9;
+  --scholar:#3457A6;
+  --scholar-bg:#E6EBF6;
+  --extra:#8B4FD6;
+  --extra-bg:#EFE5FA;
+  --debt:#C1443C;
+  --debt-bg:#F8E5E3;
+  --radius:16px;
+  --radius-sm:10px;
+  --shadow:0 2px 10px rgba(22,38,31,0.07);
+  --shadow-lift:0 8px 24px rgba(22,38,31,0.14);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
+html,body{
+  height:100%;
+  overflow-x:hidden;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-x pan-y;
+  overscroll-behavior-x:none;
+}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:'Inter',sans-serif;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+  min-height:100dvh;
+  overscroll-behavior-y:none;
+}
+button, .rline, .navbtn, .subtab, .radiopill, .checkday{touch-action:manipulation;}
+.mono{font-family:'IBM Plex Mono',monospace;}
+h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif;}
+.amount{white-space:nowrap;}
+button{font-family:inherit;cursor:pointer;}
+input,select,textarea{font-family:inherit;}
+
+/* App shell */
+#app{
+  display:flex;
+  min-height:100vh;
+  max-width:1400px;
+  margin:0 auto;
+}
+.sidenav{
+  width:150px;
+  flex-shrink:0;
+  background:var(--paper-alt);
+  border-right:1px solid var(--card-line);
+  padding:24px 14px;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  position:sticky;
+  top:0;
+  height:80vh;
+}
+.brand{
+  font-family:'Space Grotesk',sans-serif;
+  font-weight:700;
+  font-size:15px;
+  padding:0 10px 22px 10px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  color:var(--ink);
+}
+.brand-mark{
+  width:26px;height:26px;border-radius:7px;
+  background:repeating-linear-gradient(135deg,var(--accent),var(--accent) 4px,#c9852a 4px,#c9852a 8px);
+  flex-shrink:0;
+}
+.navbtn{
+  display:flex;align-items:center;gap:10px;
+  background:none;border:none;
+  padding:11px 12px;border-radius:10px;
+  color:var(--ink-soft);font-size:12px;font-weight:600;
+  text-align:left;width:100%;
+  transition:background .15s,color .15s;
+}
+.navbtn:hover{background:var(--paper);}
+.navbtn.active{background:var(--ink);color:#fff;}
+.navbtn .dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.55;flex-shrink:0;}
+
+main{flex:1;min-width:0;padding:28px 30px 100px 30px;max-width:920px;}
+.page{display:none;animation:fade .25s ease;}
+.page.active{display:block;}
+@keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+
+.pagehead{margin-bottom:22px;}
+.pagehead h1{font-size:23px;margin:0 0 3px 0;font-weight:700;}
+.pagehead .sub{color:var(--ink-soft);font-size:13.5px;}
+
+/* Bottom nav (mobile) */
+.bottomnav{
+  display:none;
+  position:fixed;bottom:0;left:0;right:0;
+  background:var(--paper-alt);
+  border-top:1px solid var(--card-line);
+  padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+  justify-content:space-between;
+  z-index:50;
+}
+.bottomnav button{
+  background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;
+  color:var(--ink-faint);font-size:10px;font-weight:600;padding:6px 2px;border-radius:8px;
+  flex:1 1 0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.bottomnav button.active{color:var(--ink);}
+.bottomnav button .ic{font-size:17px;}
+
+/* Cards */
+.card{
+  background:var(--paper-alt);
+  border:1px solid var(--card-line);
+  border-radius:var(--radius);
+  padding:18px 20px;
+  box-shadow:var(--shadow);
+}
+.grid{display:grid;gap:14px;}
+.grid-3{grid-template-columns:repeat(3,1fr);}
+.grid-4{grid-template-columns:repeat(4,1fr);}
+.grid-2{grid-template-columns:repeat(2,1fr);}
+@media (max-width:760px){.grid-3{grid-template-columns:1fr;}.grid-2{grid-template-columns:1fr;}.grid-4{grid-template-columns:repeat(2,1fr);}}
+
+/* Dashboard hero */
+.hero{
+  background:var(--ink);
+  color:#fff;
+  border-radius:20px;
+  padding:26px 24px;
+  position:relative;
+  overflow:hidden;
+  margin-bottom:16px;
+}
+.hero::after{
+  content:'';position:absolute;right:-40px;top:-40px;width:160px;height:160px;border-radius:50%;
+  background:radial-gradient(circle,rgba(232,163,61,.35),transparent 70%);
+}
+.hero .eyebrow{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#c7cec4;font-weight:600;}
+.hero .amount{font-family:'Space Grotesk',sans-serif;font-size:42px;font-weight:700;margin:6px 0 2px 0;letter-spacing:-.01em;white-space:nowrap;}
+.hero .caption{color:#a9b3a5;font-size:13px;}
+
+.walletrow{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
+.walletcard{
+  flex:1;min-width:150px;
+  border-radius:14px;padding:15px 16px;
+  border:1px solid var(--card-line);
+  position:relative;
+}
+.walletcard .wlabel{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;opacity:.75;}
+.walletcard .wamt{font-family:'IBM Plex Mono',monospace;font-size:21px;font-weight:600;margin-top:6px;white-space:nowrap;}
+.nowrap-amount{white-space:nowrap;display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
+.walletcard.allowance{background:var(--allowance-bg);color:var(--allowance);}
+.walletcard.scholar{background:var(--scholar-bg);color:var(--scholar);}
+.walletcard.extra{background:var(--extra-bg);color:var(--extra);}
+
+/* Debt module gets its own "repayment ledger" identity — a split band rather than
+   the dark hero + 3-card grid used by Dashboard/Money, per the design requirement
+   that each module should be visually distinguishable at a glance. */
+.debtsummary{
+  display:flex;border-radius:18px;overflow:hidden;margin-bottom:10px;
+  border:1px solid var(--card-line);box-shadow:var(--shadow);
+}
+.debtsummary-total{
+  flex:1.3;background:var(--debt);color:#fff;padding:22px 20px;
+}
+.debtsummary-total .amount{font-family:'Space Grotesk',sans-serif;font-size:30px;font-weight:700;margin-top:6px;}
+.debtsummary-split{flex:1;display:flex;flex-direction:column;background:var(--paper-alt);}
+.debtsummary-chip{flex:1;display:flex;flex-direction:column;justify-content:center;padding:10px 18px;border-bottom:1px dashed var(--card-line);}
+.debtsummary-chip:last-child{border-bottom:none;}
+.debtsummary-chip .k{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);}
+.debtsummary-chip .v{font-size:16px;font-weight:600;margin-top:2px;color:var(--debt);}
+@media (max-width:520px){.debtsummary{flex-direction:column;}}
+
+.variance-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;align-items:start;}
+.variance-col{padding:0 20px;min-width:0;}
+.variance-col-credits{border-right:1px solid var(--card-line);padding-left:0;}
+.variance-col-debt{padding-right:0;}
+@media (max-width:760px){
+  .variance-grid{grid-template-columns:1fr;}
+  .variance-col{padding:0;}
+  .variance-col-credits{border-right:none;border-bottom:1px solid var(--card-line);padding-bottom:20px;margin-bottom:20px;}
+}
+
+.moneytransfer-card{
+  display:flex;align-items:center;gap:14px;
+  background:var(--accent-ink);color:#fff;border-radius:16px;padding:16px 18px;margin-bottom:18px;
+  cursor:pointer;
+}
+.moneytransfer-ic{
+  width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.15);
+  display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;
+}
+.moneytransfer-title{font-weight:700;font-size:14.5px;}
+.moneytransfer-sub{font-size:12px;color:rgba(255,255,255,.7);margin-top:1px;}
+
+.statusband{
+  border-radius:14px;padding:16px 18px;margin-bottom:16px;
+  display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  border:1px solid var(--card-line);
+}
+.statusband.under{background:var(--allowance-bg);}
+.statusband.over{background:var(--debt-bg);}
+.statusband.flat{background:var(--paper);}
+.statusband .sb-title{font-weight:700;font-size:13.5px;display:flex;align-items:center;gap:7px;}
+.statusband .sb-figs{display:flex;gap:22px;flex-wrap:wrap;}
+.statusband .fig .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);font-weight:600;}
+.statusband .fig .v{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:16px;}
+
+.actionrow{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;}
+.btn{
+  border:none;border-radius:11px;padding:11px 16px;font-weight:700;font-size:13.5px;
+  display:inline-flex;align-items:center;gap:7px;
+}
+.btn-primary{background:var(--ink);color:#fff;}
+.btn-primary:hover{background:#233a2c;}
+.btn-accent{background:var(--accent);color:var(--accent-ink);}
+.btn-ghost{background:var(--paper);color:var(--ink);border:1px solid var(--card-line);}
+.btn-danger{background:var(--debt);color:#fff;}
+.btn-sm{padding:7px 12px;font-size:12.5px;border-radius:9px;}
+.btn:disabled{opacity:.45;cursor:not-allowed;}
+
+.sectiontitle{font-size:12px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;color:var(--ink-soft);margin:22px 0 10px 0;}
+.sectiontitle:first-child{margin-top:0;}
+
+/* Receipt-style list */
+.receipt{
+  background:var(--paper-alt);border:1px solid var(--card-line);border-radius:var(--radius);
+  padding:4px 0;
+}
+.rline{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:12px 18px;
+  border-bottom:1px dashed var(--card-line);
+  cursor:pointer;
+}
+.rline:last-child{border-bottom:none;}
+.rline:hover{background:var(--paper);}
+.rline .rl-left{display:flex;gap:11px;align-items:center;min-width:0;}
+.ricon{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+.rl-txt .rl-title{font-weight:600;font-size:13.8px;}
+.rl-txt .rl-sub{font-size:11.8px;color:var(--ink-soft);margin-top:1px;}
+.ramt{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:14px;white-space:nowrap;}
+.ramt.pos{color:var(--allowance);}
+.ramt.neg{color:var(--ink);}
+.ramt.debtc{color:var(--debt);}
+.empty{padding:34px 18px;text-align:center;color:var(--ink-faint);font-size:13.5px;}
+.rline-actions{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.editbtn{background:none;border:1px solid var(--card-line);color:var(--ink-soft);font-size:11px;font-weight:700;padding:5px 10px;border-radius:8px;}
+.editbtn:hover{background:var(--paper);color:var(--ink);}
+.deletebtn{background:none;border:1px solid var(--debt);color:var(--debt);font-size:11px;font-weight:700;padding:5px 10px;border-radius:8px;}
+.deletebtn:hover{background:var(--debt-bg);}
+.expiredtag{font-size:10.5px;color:var(--ink-faint);font-style:italic;white-space:nowrap;}
+
+/* Week strip */
+.weekstrip{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;}
+.weekstrip{
+  display:flex;
+  gap:8px;
+  margin-bottom:18px;
+  flex-wrap:nowrap;
+  width:100%;
+}
+
+.wday{
+  flex:1 1 0;
+  min-width:0;
+  width:0;
+  border-radius:12px;
+  padding:10px 6px;
+  text-align:center;
+  border:1px solid var(--card-line);
+  background:var(--paper-alt);
+  overflow:hidden;
+}
+
+.wday .wd-name{
+  font-size:10.5px;
+  font-weight:700;
+  color:var(--ink-soft);
+  text-transform:uppercase;
+  white-space:nowrap;
+}
+
+.wday .wd-status{
+  font-size:16px;
+  margin:5px 0 2px;
+  line-height:1;
+}
+
+.wday .wd-amt{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;
+  color:var(--ink-soft);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.wday.today{
+  border-color:var(--accent);
+  box-shadow:0 0 0 2px rgba(232,163,61,.25);
+}
+
+.wday.selected{
+  background:var(--ink);
+}
+
+.wday.selected .wd-name,
+.wday.selected .wd-amt{
+  color:#cfd6cc;
+}
+
+.wday.off{
+  opacity:.4;
+}
+
+/* Phone: always keep Sun–Sat on ONE row */
+@media (max-width:520px){
+  .weekstrip{
+    gap:4px;
+    flex-wrap:nowrap;
+  }
+
+  .wday{
+    flex:1 1 0;
+    min-width:0;
+    padding:9px 2px;
+    border-radius:10px;
+  }
+
+  .wday .wd-name{
+    font-size:9px;
+  }
+
+  .wday .wd-status{
+    font-size:14px;
+    margin:5px 0 2px;
+  }
+
+  .wday .wd-amt{
+    font-size:9px;
+  }
+}
+
+/* Forms / modal */
+.overlay{
+  position:fixed;inset:0;background:rgba(22,38,31,.42);
+  display:none;align-items:flex-end;justify-content:center;z-index:100;
+  padding:0;
+}
+.overlay.open{display:flex;}
+@media (min-width:640px){.overlay{align-items:center;}}
+.modal{
+  background:var(--paper-alt);width:100%;max-width:480px;
+  border-radius:20px 20px 0 0;
+  padding:22px 22px calc(22px + env(safe-area-inset-bottom));
+  max-height:88vh;overflow-y:auto;
+  box-shadow:var(--shadow-lift);
+  animation:slideup .22s ease;
+}
+@media (min-width:640px){.modal{border-radius:18px;}}
+@keyframes slideup{from{transform:translateY(24px);opacity:0;}to{transform:none;opacity:1;}}
+.modal h3{margin:0 0 16px 0;font-size:17px;}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:12px;font-weight:700;color:var(--ink-soft);margin-bottom:5px;text-transform:uppercase;letter-spacing:.03em;}
+.field input[type=text],.field input[type=number],.field input[type=date],.field select,.field textarea{
+  width:100%;border:1px solid var(--card-line);border-radius:10px;padding:10px 12px;font-size:14px;
+  background:var(--paper);color:var(--ink);
+}
+.field textarea{resize:vertical;min-height:56px;}
+.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--accent);outline-offset:1px;}
+.radiogroup{display:flex;gap:8px;flex-wrap:wrap;}
+.radiopill{
+  border:1px solid var(--card-line);border-radius:20px;padding:8px 14px;font-size:13px;font-weight:600;
+  background:var(--paper);color:var(--ink-soft);
+}
+.radiopill.sel{background:var(--ink);color:#fff;border-color:var(--ink);}
+.radiopill.disabled{opacity:.4;}
+.modalfoot{display:flex;gap:10px;margin-top:6px;}
+.modalfoot .btn{flex:1;justify-content:center;}
+.closex{position:absolute;top:16px;right:16px;background:none;border:none;font-size:19px;color:var(--ink-faint);}
+.modal{position:relative;}
+.helptext{font-size:11.5px;color:var(--ink-faint);margin-top:4px;}
+.photopreview{width:100%;max-height:160px;object-fit:cover;border-radius:10px;margin-top:8px;display:none;}
+
+.chip{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;}
+.chip.allowance{background:var(--allowance-bg);color:var(--allowance);}
+.chip.scholar{background:var(--scholar-bg);color:var(--scholar);}
+.chip.extra{background:var(--extra-bg);color:var(--extra);}
+.chip.budgeted{background:var(--allowance-bg);color:var(--allowance);}
+.chip.non_budgeted{background:var(--paper);color:var(--ink-soft);border:1px solid var(--card-line);}
+.chip.debt{background:var(--debt-bg);color:var(--debt);}
+
+.barrow{margin-bottom:12px;}
+.barrow .brtop{display:flex;justify-content:space-between;font-size:12.8px;margin-bottom:5px;}
+.barrow .brtop .cname{font-weight:600;}
+.barrow .brtop .camt{font-family:'IBM Plex Mono',monospace;color:var(--ink-soft);}
+.bartrack{height:8px;background:var(--paper);border-radius:6px;overflow:hidden;}
+.barfill{height:100%;border-radius:6px;background:var(--accent);}
+
+.tablewrap{width:100%;}
+table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed;}
+table td, table th{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+@media (max-width:520px){
+  table{font-size:11px;}
+  table th{font-size:9px;padding:6px 4px;}
+  table td{padding:7px 4px;font-size:10.5px;}
+}
+table th{text-align:left;font-size:10.8px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);padding:8px 10px;border-bottom:1px solid var(--card-line);}
+table td{padding:9px 10px;border-bottom:1px solid var(--card-line);font-family:'IBM Plex Mono',monospace;font-size:12.5px;}
+table tr:last-child td{border-bottom:none;}
+.tag-under{color:var(--allowance);font-weight:600;}
+.tag-over{color:var(--debt);font-weight:600;}
+
+.checkgrid{display:flex;gap:8px;flex-wrap:wrap;}
+.checkday{
+  border:1px solid var(--card-line);border-radius:10px;padding:8px 6px;text-align:center;font-size:12px;font-weight:700;
+  background:var(--paper);color:var(--ink-soft);min-width:44px;
+}
+.checkday.on{background:var(--allowance);color:#fff;border-color:var(--allowance);}
+
+.toast{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+  background:var(--ink);color:#fff;padding:11px 18px;border-radius:30px;font-size:13.5px;font-weight:600;
+  box-shadow:var(--shadow-lift);z-index:200;opacity:0;pointer-events:none;transition:opacity .2s, transform .2s;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(-6px);}
+
+.subtabs{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap;}
+.subtab{
+  border:1px solid var(--card-line);background:var(--paper-alt);border-radius:10px;padding:8px 14px;font-size:12.8px;font-weight:700;color:var(--ink-soft);
+}
+.subtab.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+
+.eyebtn{background:none;border:none;font-size:14px;padding:2px 4px;line-height:1;opacity:.85;cursor:pointer;}
+.eyebtn:hover{opacity:1;}
+
+/* ---- Onboarding / PIN gate ---- */
+.gate{
+  display:none;position:fixed;inset:0;z-index:500;
+  background:var(--paper);
+  align-items:center;justify-content:center;
+  padding:24px 18px calc(24px + env(safe-area-inset-bottom));
+  overflow-y:auto;
+}
+body.gate-active #app, body.gate-active #bottomnav, body.gate-active #save-indicator{display:none !important;}
+body.gate-active{overflow:hidden;}
+.gatecard{
+  width:100%;max-width:420px;margin:auto;
+  background:var(--paper-alt);border:1px solid var(--card-line);border-radius:22px;
+  padding:28px 24px;box-shadow:var(--shadow-lift);
+  text-align:center;
+}
+.gate-mark{width:52px;height:52px;border-radius:14px;margin:0 auto 18px auto;
+  background:repeating-linear-gradient(135deg,var(--accent),var(--accent) 6px,#c9852a 6px,#c9852a 12px);}
+.gate-title{font-size:21px;margin:0 0 8px 0;}
+.gate-sub{color:var(--ink-soft);font-size:13.5px;margin:0 0 20px 0;line-height:1.5;}
+.gate-cta{width:100%;justify-content:center;}
+.gate-btnrow{display:flex;gap:10px;margin-top:8px;}
+.gate-btnrow .btn{flex:1;justify-content:center;}
+.gate-list{list-style:none;padding:0;margin:0 0 20px 0;text-align:left;font-size:13.5px;color:var(--ink);}
+.gate-list li{padding:7px 0;border-bottom:1px dashed var(--card-line);}
+.gate-list li:last-child{border-bottom:none;}
+.gatecard .field{text-align:left;}
+.gate-link{background:none;border:none;color:var(--ink-soft);font-size:12.5px;font-weight:700;margin-top:16px;text-decoration:underline;}
+.pindots{display:flex;gap:14px;justify-content:center;margin:22px 0 6px 0;}
+.pindot{width:16px;height:16px;border-radius:50%;border:2px solid var(--card-line);background:transparent;transition:background .15s,border-color .15s;}
+.pindot.filled{background:var(--ink);border-color:var(--ink);}
+.pin-error{min-height:18px;color:var(--debt);font-size:12.5px;font-weight:600;margin-bottom:6px;}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:260px;margin:14px auto 0 auto;}
+.keypadbtn{
+  aspect-ratio:1;border-radius:50%;border:1px solid var(--card-line);background:var(--paper);
+  font-size:19px;font-weight:700;color:var(--ink);
+}
+.keypadbtn:active{background:var(--card-line);}
+.keypad-back{font-size:16px;color:var(--ink-soft);border:none;background:none;}
+
+@media (max-width:760px){
+  .sidenav{display:none;}
+  .bottomnav{display:flex;}
+  main{padding:calc(28px + env(safe-area-inset-top)) 16px calc(76px + env(safe-area-inset-bottom)) 16px;}
+  .hero .amount{font-size:34px;}
+}
+html,body{width:100%;}
+#app, main, .card, .receipt{max-width:100%;}
+.hero .amount{font-size:clamp(26px,8vw,42px);}
+.walletcard .wamt{font-size:clamp(16px,4.5vw,21px);}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <nav class="sidenav" id="sidenav">
+    <div class="brand"><span class="brand-mark"></span>Ledger</div>
+  </nav>
+
+  <main id="main">
+    <!-- pages injected by JS -->
+  </main>
+</div>
+
+<nav class="bottomnav" id="bottomnav"></nav>
+
+<div id="save-indicator" style="position:fixed;top:calc(8px + env(safe-area-inset-top));right:12px;font-size:10.5px;font-weight:600;color:var(--ink-faint);background:var(--paper-alt);padding:3px 9px;border-radius:20px;border:1px solid var(--card-line);z-index:60;"></div>
+
+<div id="gate" class="gate"></div>
+
+<div class="overlay" id="overlay">
+  <div class="modal" id="modalbody"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================= STATE ============================= */
+const PESO = '₱';
+const CATS_DEFAULT = ['Food','Transportation','School Necessities','Needs','Wants'];
+const WEEKDAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const NAVS = [
+  {id:'dashboard', label:'Dashboard', icon:'◆'},
+  {id:'budget', label:'Budget', icon:'▦'},
+  {id:'spending', label:'Spending', icon:'✎'},
+  {id:'variance', label:'Variance', icon:'◈'},
+  {id:'settings', label:'Settings', icon:'⚙'},
+];
+
+let state = null;
+let appMeta = null; // onboarding / PIN / visibility — kept separate from financial data
+let unlockedThisSession = false;
+let currentTab = 'dashboard';
+let settingsView = 'menu'; // 'menu' | 'personal' | 'privacy' | 'money' | 'insights' | 'schooldays'
+let saveTimer = null;
+let lastSavedAt = null;
+let saveState = 'idle'; // idle | saving | saved | error
+
+/* ============================= OFFLINE STORAGE ENGINE =============================
+   This app must work with zero internet connection — including when the file is
+   downloaded and opened on a completely different phone. So storage here never talks
+   to a server or depends on being online:
+
+   - Primary store: localStorage. It's synchronous, built into every browser, requires
+     no network call, and survives closing the app, refreshing, and restarting the
+     phone.
+   - Mirror store: IndexedDB, when available, as a second local copy with a larger
+     quota (helpful once photos start accumulating). Writes go to both; reads prefer
+     localStorage (instant, synchronous) and fall back to IndexedDB if localStorage is
+     ever empty (e.g. a browser that clears localStorage more aggressively than IDB).
+   - If this file happens to be running inside a Claude artifact (window.storage
+     exists), we ALSO best-effort mirror saves there for cross-device sync within
+     Claude — but that call is fire-and-forget and never affects the save indicator or
+     blocks/fails a save. Local storage is always the source of truth.
+*/
+const LS_PREFIX = 'ledgerapp3:'; // bumped again for a clean start per this release; Settings > Privacy & Security > Reset App Data also available for manual resets going forward
+let idbHandle = null;
+function idbOpen(){
+  return new Promise((resolve)=>{
+    if(!('indexedDB' in window)){ resolve(null); return; }
+    try{
+      const req = indexedDB.open('ledger-db-v3', 1);
+      req.onupgradeneeded = ()=>{ req.result.createObjectStore('kv'); };
+      req.onsuccess = ()=>resolve(req.result);
+      req.onerror = ()=>resolve(null);
+    }catch(e){ resolve(null); }
+  });
+}
+async function idbGet(key){
+  try{
+    if(!idbHandle) idbHandle = await idbOpen();
+    if(!idbHandle) return null;
+    return await new Promise((resolve)=>{
+      const tx = idbHandle.transaction('kv','readonly');
+      const req = tx.objectStore('kv').get(key);
+      req.onsuccess = ()=>resolve(req.result!==undefined? req.result : null);
+      req.onerror = ()=>resolve(null);
+    });
+  }catch(e){ return null; }
+}
+async function idbSet(key, value){
+  try{
+    if(!idbHandle) idbHandle = await idbOpen();
+    if(!idbHandle) return false;
+    return await new Promise((resolve)=>{
+      const tx = idbHandle.transaction('kv','readwrite');
+      tx.objectStore('kv').put(value, key);
+      tx.oncomplete = ()=>resolve(true);
+      tx.onerror = ()=>resolve(false);
+    });
+  }catch(e){ return false; }
+}
+function lsGet(key){
+  try{ return localStorage.getItem(LS_PREFIX+key); }catch(e){ return null; }
+}
+function lsSet(key, value){
+  try{ localStorage.setItem(LS_PREFIX+key, value); return true; }catch(e){ return false; }
+}
+const hasClaudeStorage = (typeof window!=='undefined' && window.storage && typeof window.storage.get==='function');
+
+/* Read: localStorage first (instant + reliable), IndexedDB as a fallback if empty. */
+async function localRead(key){
+  const fromLS = lsGet(key);
+  if(fromLS!==null) return fromLS;
+  const fromIDB = await idbGet(key);
+  return fromIDB;
+}
+/* Write: to BOTH local stores. Local write is the only thing that determines success —
+   this never touches the network, so it can never fail due to "no connection". */
+async function localWrite(key, value){
+  const okLS = lsSet(key, value);
+  const okIDB = await idbSet(key, value);
+  // Best-effort only: never awaited by the caller's success/failure decision.
+  if(hasClaudeStorage){ try{ window.storage.set(key, value, false); }catch(e){} }
+  return okLS || okIDB;
+}
+
+function defaultState(){
+  return {
+    settings:{ schoolDays:[1,2,3,4,5], defaultBudget:100, defaultSource:'cash' },
+    fundsBanks:[], scholarBanks:[],
+    incomeTx:[], extraTx:[], transfers:[], budgets:[], expenses:[], debts:[], debtPayments:[], history:[], categories:[...CATS_DEFAULT]
+  };
+}
+function defaultAppMeta(){
+  return {
+    onboardingCompleted:false,
+    profile:null, // {name, userType, securityQuestion, securityAnswer, createdAt}
+    pinHash:null, pinSalt:null, pinAlgo:null
+  };
+}
+
+/* Full data wipe — clears every stored record (financial state AND app-meta/PIN/
+   profile) from both localStorage and IndexedDB, resets in-memory state to fresh
+   defaults, and re-enters the app at onboarding, exactly as if it had never been
+   used. This does not touch the app's code — only stored user data. */
+async function resetAllData(){
+  try{ localStorage.removeItem(LS_PREFIX+'budget-app-state'); }catch(e){}
+  try{ localStorage.removeItem(LS_PREFIX+'app-meta'); }catch(e){}
+  try{ await idbSet('budget-app-state', null); }catch(e){}
+  try{ await idbSet('app-meta', null); }catch(e){}
+  state = defaultState();
+  appMeta = defaultAppMeta();
+  visibilityState = {total:false, funds:false, scholar:false, extra:false};
+  budgetViewDate = null;
+  currentTab = 'dashboard';
+  settingsView = 'menu';
+  startApp();
+}
+
+async function loadState(){
+  try{
+    const raw = await localRead('budget-app-state');
+    state = raw ? JSON.parse(raw) : defaultState();
+  }catch(e){ state = defaultState(); }
+  if(!state.categories) state.categories = [...CATS_DEFAULT];
+  if(!state.transfers) state.transfers = [];
+
+  try{
+    const rawMeta = await localRead('app-meta');
+    appMeta = rawMeta ? JSON.parse(rawMeta) : defaultAppMeta();
+  }catch(e){ appMeta = defaultAppMeta(); }
+  visibilityState = {};
+
+  // One-time migration from an earlier version of this app that stored a simple
+  // {name, birthdate, age} profile directly on the financial state and had no PIN.
+  // We carry the name forward and only ask the user to add a PIN (not redo onboarding).
+  if(!appMeta.profile && state.profile){
+    appMeta.profile = {
+      name: state.profile.name || '',
+      userType: '',
+      securityQuestion: '', securityAnswer: '',
+      createdAt: state.profile.createdAt || Date.now(),
+      migratedFrom: 'legacy'
+    };
+    delete state.profile;
+    scheduleSave();
+    scheduleSaveMeta();
+  }
+
+  migrateExpenseTypes();
+  migrateFundsHierarchy();
+  migrateDebtAndBudgetModel();
+  autoCloseBudgets();
+  startApp();
+}
+
+function scheduleSave(){
+  clearTimeout(saveTimer);
+  saveState = 'saving'; updateSaveIndicator();
+  saveTimer = setTimeout(async ()=>{
+    const ok = await localWrite('budget-app-state', JSON.stringify(state));
+    if(ok){ lastSavedAt = Date.now(); saveState = 'saved'; }
+    else { saveState = 'error'; showToast('Could not save on this device/browser'); }
+    updateSaveIndicator();
+  }, 250);
+}
+let saveMetaTimer = null;
+function scheduleSaveMeta(){
+  clearTimeout(saveMetaTimer);
+  saveMetaTimer = setTimeout(async ()=>{
+    await localWrite('app-meta', JSON.stringify(appMeta));
+  }, 150);
+}
+function updateSaveIndicator(){
+  const el = document.getElementById('save-indicator');
+  if(!el) return;
+  if(saveState==='saving'){ el.textContent = 'Saving…'; el.style.color = 'var(--ink-faint)'; }
+  else if(saveState==='error'){ el.textContent = 'Not saved on this device'; el.style.color = 'var(--debt)'; }
+  else if(saveState==='saved'){ el.textContent = 'Saved on this device'; el.style.color = 'var(--ink-faint)'; }
+  else { el.textContent = ''; }
+}
+
+/* Migration: expenses recorded before the Budgeted/Non-Budgeted distinction existed
+   don't have an expenseType. We infer it from whether they were linked to a budget
+   day at the time (budgetId set => was counting toward that day's budget => Budgeted),
+   which preserves the historical budget math exactly as it was. */
+function migrateExpenseTypes(){
+  (state.expenses||[]).forEach(e=>{
+    if(e.expenseType!==BUDGETED && e.expenseType!==NON_BUDGETED && e.expenseType!==SURPLUS){
+      e.expenseType = e.budgetId ? BUDGETED : NON_BUDGETED;
+    }
+    if(e.expenseType===NON_BUDGETED || e.expenseType===SURPLUS){ e.budgetId = null; }
+  });
+}
+
+/* Migration from the earlier model where:
+   - Every Non-Budgeted expense auto-generated a "normal" debt record (relatedExpenseId
+     set) and ALSO deducted straight from its source. Under the new model, only
+     Non-Budgeted + "Wants" expenses become debt (now called "personal", and they no
+     longer deduct from a source at all); "Needs" and everything else are a plain
+     direct deduction with no debt. We rename those old auto debts to 'personal' so
+     they keep showing correctly, and null out the expense's source if its category is
+     "Wants" so it stops being double-counted as also deducting real money.
+   - Budgets used to carry a `source` field that never actually moved money (dead
+     weight under the new model) — simply drop it. */
+function migrateDebtAndBudgetModel(){
+  (state.debts||[]).forEach(d=>{
+    if(d.debtType==='normal' && d.relatedExpenseId){ d.debtType = 'personal'; }
+  });
+  (state.expenses||[]).forEach(e=>{
+    if(e.expenseType===NON_BUDGETED && e.category==='Wants' && e.source){ e.source = null; }
+  });
+  (state.budgets||[]).forEach(b=>{ if('source' in b) delete b.source; });
+}
+
+/* Migration from the earlier flat "Allowance"/"Scholar Allowance" account model to
+   the new Funds (Cash on Hand + Funds E-Banks) / Scholar Allowance (Scholar E-Banks
+   only) hierarchy. Old records referred to a top-level key ('allowance' or
+   'scholar') directly; the new model requires an actual node ('cash', 'fbank:X', or
+   'sbank:X'). Old "allowance" money becomes Cash on Hand (a 1:1 concept match — both
+   represent undifferentiated real money with no bank). Old "scholar" money has
+   nowhere equivalent to land, since Scholar Allowance can no longer hold cash
+   directly — so a single Scholar E-Bank named "Scholar Wallet" is created on demand
+   to hold it, preserving the exact same balance under the new required structure. */
+function migrateFundsHierarchy(){
+  if(!state.fundsBanks) state.fundsBanks = [];
+  if(!state.scholarBanks) state.scholarBanks = [];
+  const hasOldScholarData = ['incomeTx','expenses','debtPayments'].some(arr=>
+    (state[arr]||[]).some(x=> x.type==='scholar' || x.source==='scholar' || x.from==='scholar' || x.to==='scholar')
+  ) || (state.transfers||[]).some(t=>t.from==='scholar'||t.to==='scholar')
+    || (state.settings && state.settings.defaultSource==='scholar');
+  let legacyScholarBankId = null;
+  if(hasOldScholarData){
+    const bank = addScholarBank('Scholar Wallet');
+    legacyScholarBankId = bank.id;
+  }
+  const remap = (key)=>{
+    if(key==='allowance') return 'cash';
+    if(key==='scholar') return legacyScholarBankId ? 'sbank:'+legacyScholarBankId : 'cash';
+    return key;
+  };
+  (state.incomeTx||[]).forEach(x=>{
+    if(x.node===undefined && x.type!==undefined){ x.node = remap(x.type); delete x.type; }
+  });
+  (state.expenses||[]).forEach(e=>{
+    if(e.source==='allowance' || e.source==='scholar'){ e.source = remap(e.source); }
+  });
+  (state.transfers||[]).forEach(t=>{
+    if(t.from==='allowance'||t.from==='scholar'){ t.from = remap(t.from); }
+    if(t.to==='allowance'||t.to==='scholar'){ t.to = remap(t.to); }
+  });
+  (state.debtPayments||[]).forEach(p=>{
+    if(p.source==='allowance'||p.source==='scholar'){ p.source = remap(p.source); }
+  });
+  if(state.settings && (state.settings.defaultSource==='allowance' || state.settings.defaultSource==='scholar')){
+    state.settings.defaultSource = remap(state.settings.defaultSource);
+  }
+}
+
+/* ============================= PIN SECURITY =============================
+   The PIN itself is never stored or logged in plain text. We hash it (SHA-256 via
+   Web Crypto, salted per-installation) and only ever compare hashes. Web Crypto works
+   fine offline and in file:// contexts (treated as a secure context by browsers); if
+   it's ever unavailable we fall back to a simple non-cryptographic hash rather than
+   storing the PIN as plain text. */
+function randomSalt(){
+  try{
+    const arr = new Uint8Array(16);
+    crypto.getRandomValues(arr);
+    return [...arr].map(b=>b.toString(16).padStart(2,'0')).join('');
+  }catch(e){ return Math.random().toString(36).slice(2)+Date.now().toString(36); }
+}
+async function hashPin(pin, saltHex){
+  try{
+    if(window.crypto && window.crypto.subtle){
+      const data = new TextEncoder().encode(saltHex+':'+pin);
+      const buf = await crypto.subtle.digest('SHA-256', data);
+      return {hex:[...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join(''), algo:'sha256'};
+    }
+  }catch(e){}
+  let h = 5381;
+  const s = saltHex+':'+pin;
+  for(let i=0;i<s.length;i++){ h = ((h*33) ^ s.charCodeAt(i)) >>> 0; }
+  return {hex:h.toString(16), algo:'djb2-fallback'};
+}
+async function setPin(pin){
+  const salt = randomSalt();
+  const {hex, algo} = await hashPin(pin, salt);
+  appMeta.pinSalt = salt; appMeta.pinHash = hex; appMeta.pinAlgo = algo;
+  scheduleSaveMeta();
+}
+async function verifyPin(pin){
+  if(!appMeta.pinHash || !appMeta.pinSalt) return false;
+  const {hex} = await hashPin(pin, appMeta.pinSalt);
+  return hex === appMeta.pinHash;
+}
+
+/* ============================= BALANCE VISIBILITY =============================
+   Purely a display concern — never touches the underlying numbers used in any
+   calculation. Every sensitive amount (Total Money, Allowance, Scholar Allowance,
+   Credits) is HIDDEN by default every time the app is opened, and reveals only
+   while the user taps the eye icon — this is intentionally NOT a persisted setting;
+   there is no separate "Balance Privacy" toggle to configure. */
+let visibilityState = {};
+function isVisible(key){ return !!visibilityState[key]; }
+function maskedFmt(amount, key){ return isVisible(key) ? fmt(amount) : '₱ ••••••'; }
+const ICON_EYE = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 12s4-7.5 10.5-7.5S22.5 12 22.5 12s-4 7.5-10.5 7.5S1.5 12 1.5 12z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const ICON_EYE_OFF = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.2C11 5.07 11.5 5 12 5c6.5 0 10.5 7 10.5 7a13.9 13.9 0 0 1-3.1 3.9M6.6 6.6C3.7 8.3 1.5 12 1.5 12s4 7 10.5 7c1.7 0 3.2-.4 4.5-1.1"/><path d="M9.9 10a3 3 0 0 0 4.2 4.2"/></svg>`;
+function eyeToggle(key, extraStyle){
+  return `<button type="button" class="eyebtn" data-visibility="${key}" style="${extraStyle||''}" title="${isVisible(key)?'Hide':'Show'} amount" aria-label="${isVisible(key)?'Hide':'Show'} amount">${isVisible(key)?ICON_EYE:ICON_EYE_OFF}</button>`;
+}
+function wireVisibilityToggles(){
+  document.querySelectorAll('[data-visibility]').forEach(el=>{
+    el.onclick = (e)=>{
+      e.stopPropagation();
+      const key = el.dataset.visibility;
+      visibilityState[key] = !isVisible(key);
+      render();
+    };
+  });
+}
+
+/* ============================= ONBOARDING / PIN GATE =============================
+   Full-screen flow shown instead of the app: Welcome → About → Details → Create PIN
+   on first use, or just the PIN lock screen on every later open. This state
+   (onboardingCompleted, profile, pinHash) is intentionally separate from the
+   financial transaction data (state), so changing/resetting it never touches
+   Allowance, Scholar Allowance, budgets, spending, or history. */
+let draftProfile = {name:'', userType:'', securityQuestion:'', securityAnswer:''};
+
+function showGateShell(){
+  document.body.classList.add('gate-active');
+  document.getElementById('gate').style.display = 'flex';
+}
+function enterApp(){
+  unlockedThisSession = true;
+  document.body.classList.remove('gate-active');
+  document.getElementById('gate').style.display = 'none';
+  render();
+}
+
+function pinDotsHTML(value){
+  let dots='';
+  for(let i=0;i<4;i++){ dots += `<div class="pindot ${i<value.length?'filled':''}"></div>`; }
+  return `<div class="pindots">${dots}</div>`;
+}
+function keypadHTML(){
+  const keys = ['1','2','3','4','5','6','7','8','9','','0','back'];
+  return `<div class="keypad">${keys.map(k=>{
+    if(k==='') return `<div></div>`;
+    if(k==='back') return `<button type="button" class="keypadbtn keypad-back" data-key="back">⌫</button>`;
+    return `<button type="button" class="keypadbtn" data-key="${k}">${k}</button>`;
+  }).join('')}</div>`;
+}
+/* Reusable two-step (enter, then confirm) PIN capture. Renders into any container —
+   the full-screen gate for onboarding/recovery, or a settings modal for changing an
+   existing PIN. */
+function mountPinFlow(container, {title, sub, onSuccess, mismatchMsg}){
+  let stage='enter', firstPin='', buffer='', errorMsg='';
+  function draw(){
+    container.innerHTML = `
+      <div class="gatecard" style="box-shadow:none;border:none;padding:4px 0;">
+        <h1 class="gate-title" style="font-size:19px">${stage==='enter'? title : 'Confirm PIN'}</h1>
+        <p class="gate-sub">${stage==='enter'? sub : 'Enter the same PIN again to confirm.'}</p>
+        ${pinDotsHTML(buffer)}
+        <div class="pin-error">${errorMsg}</div>
+        ${keypadHTML()}
+      </div>`;
+    wireKeys();
+  }
+  function wireKeys(){
+    container.querySelectorAll('.keypadbtn').forEach(b=>{
+      b.onclick = ()=>{
+        const k = b.dataset.key;
+        if(k==='back'){ buffer = buffer.slice(0,-1); errorMsg=''; draw(); return; }
+        if(buffer.length>=4) return;
+        errorMsg=''; buffer += k; draw();
+        if(buffer.length===4){
+          setTimeout(async ()=>{
+            if(stage==='enter'){ firstPin = buffer; buffer=''; stage='confirm'; draw(); }
+            else if(buffer===firstPin){ await onSuccess(buffer); }
+            else { errorMsg = mismatchMsg || 'PINs do not match. Please try again.'; buffer=''; firstPin=''; stage='enter'; draw(); }
+          }, 120);
+        }
+      };
+    });
+  }
+  draw();
+}
+
+function renderGateWelcome(){
+  showGateShell();
+  const gate = document.getElementById('gate');
+  gate.innerHTML = `
+    <div class="gatecard">
+      <div class="gate-mark"></div>
+      <h1 class="gate-title">Welcome to Ledger</h1>
+      <p class="gate-sub">Your personal money and school-budget tracker.</p>
+      <button class="btn btn-primary gate-cta" id="g-next">Get Started</button>
+    </div>`;
+  document.getElementById('g-next').onclick = renderGateAbout;
+}
+function renderGateAbout(){
+  showGateShell();
+  const items = [
+    'Track your Funds and Scholar Allowance',
+    'Plan and follow a school-day budget',
+    'Record Budgeted and Non-Budgeted spending',
+    'Build Credits automatically from budget savings',
+    'Track and pay off budget overruns as Debt'
+  ];
+  const gate = document.getElementById('gate');
+  gate.innerHTML = `
+    <div class="gatecard">
+      <h1 class="gate-title">About Ledger</h1>
+      <p class="gate-sub">Your money, organized in one place.</p>
+      <ul class="gate-list">${items.map(i=>`<li>✓ ${i}</li>`).join('')}</ul>
+      <div class="gate-btnrow">
+        <button class="btn btn-ghost" id="g-back">Back</button>
+        <button class="btn btn-primary" id="g-next">Next</button>
+      </div>
+    </div>`;
+  document.getElementById('g-back').onclick = renderGateWelcome;
+  document.getElementById('g-next').onclick = renderGateDetails;
+}
+const SECURITY_QUESTIONS = [
+  "What's your favorite subject in school?",
+  "What's the name of your best friend?",
+  "What was your first pet's name?",
+  "What city were you born in?",
+  "Custom question…"
+];
+function renderGateDetails(){
+  showGateShell();
+  const gate = document.getElementById('gate');
+  const isCustom = draftProfile.securityQuestion && !SECURITY_QUESTIONS.slice(0,4).includes(draftProfile.securityQuestion);
+  gate.innerHTML = `
+    <div class="gatecard">
+      <h1 class="gate-title">Set Up Your Details</h1>
+      <p class="gate-sub">Only what's needed to personalize the app and help you recover your PIN later.</p>
+      <div class="field"><label>Name</label><input type="text" id="d-name" value="${(draftProfile.name||'').replace(/"/g,'&quot;')}" placeholder="e.g. Maria Santos"></div>
+      <div class="field"><label>User Type</label>
+        <select id="d-usertype">
+          ${['Student','Guardian/Parent','Other'].map(o=>`<option ${draftProfile.userType===o?'selected':''}>${o}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>Security Question <span style="font-weight:400;text-transform:none">(used only for PIN recovery)</span></label>
+        <select id="d-question">
+          ${SECURITY_QUESTIONS.map(q=>`<option ${(isCustom&&q==='Custom question…')||draftProfile.securityQuestion===q?'selected':''}>${q}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field" id="d-customq-wrap" style="display:${isCustom?'block':'none'}">
+        <label>Your custom question</label>
+        <input type="text" id="d-customq" value="${isCustom?(draftProfile.securityQuestion||'').replace(/"/g,'&quot;'):''}">
+      </div>
+      <div class="field"><label>Answer</label><input type="text" id="d-answer" value="${(draftProfile.securityAnswer||'').replace(/"/g,'&quot;')}" placeholder="Only you should know this"></div>
+      <div class="gate-btnrow">
+        <button class="btn btn-ghost" id="g-back">Back</button>
+        <button class="btn btn-primary" id="g-next">Next</button>
+      </div>
+    </div>`;
+  document.getElementById('d-question').onchange = (e)=>{
+    document.getElementById('d-customq-wrap').style.display = e.target.value==='Custom question…' ? 'block':'none';
+  };
+  document.getElementById('g-back').onclick = renderGateAbout;
+  document.getElementById('g-next').onclick = ()=>{
+    const name = document.getElementById('d-name').value.trim();
+    const userType = document.getElementById('d-usertype').value;
+    let question = document.getElementById('d-question').value;
+    if(question==='Custom question…'){
+      const customQ = document.getElementById('d-customq').value.trim();
+      question = customQ || 'Custom question';
+    }
+    const answer = document.getElementById('d-answer').value.trim();
+    if(!name){ showToast('Please enter your name'); return; }
+    if(!answer || answer.length<2){ showToast("Please set a security answer — you'll need it to recover your PIN"); return; }
+    draftProfile = {name, userType, securityQuestion:question, securityAnswer:answer};
+    renderGatePinSetupNew();
+  };
+}
+function renderGatePinSetupNew(){
+  showGateShell();
+  mountPinFlow(document.getElementById('gate'), {
+    title:'Create Your PIN',
+    sub:'Create a 4-digit PIN to protect your financial information.',
+    onSuccess: async (pin)=>{
+      appMeta.profile = {...draftProfile, createdAt:Date.now()};
+      await setPin(pin);
+      appMeta.onboardingCompleted = true;
+      scheduleSaveMeta();
+      enterApp();
+      showToast(`Welcome, ${draftProfile.name.split(' ')[0]}!`);
+    }
+  });
+}
+/* For users migrated from an earlier version of this app who already have a profile
+   but never set a PIN — skip straight to PIN creation instead of full onboarding. */
+function renderGatePinSetupOnly(){
+  showGateShell();
+  mountPinFlow(document.getElementById('gate'), {
+    title:'Secure Your App',
+    sub:`Hi ${(appMeta.profile.name||'').split(' ')[0]||'there'}! Create a 4-digit PIN to protect your financial information going forward.`,
+    onSuccess: async (pin)=>{
+      await setPin(pin);
+      appMeta.onboardingCompleted = true;
+      scheduleSaveMeta();
+      enterApp();
+      showToast('PIN created');
+    }
+  });
+}
+function mountLockPin(){
+  const gate = document.getElementById('gate');
+  let buffer='', errorMsg='';
+  function draw(){
+    gate.innerHTML = `
+      <div class="gatecard">
+        <h1 class="gate-title">Enter PIN</h1>
+        <p class="gate-sub">${appMeta.profile && appMeta.profile.name ? 'Welcome back, '+appMeta.profile.name.split(' ')[0]+'.' : 'Enter your PIN to continue.'}</p>
+        ${pinDotsHTML(buffer)}
+        <div class="pin-error">${errorMsg}</div>
+        ${keypadHTML()}
+        <button type="button" class="gate-link" id="g-forgot">Forgot PIN?</button>
+      </div>`;
+    document.getElementById('g-forgot').onclick = renderGateRecoverVerify;
+    gate.querySelectorAll('.keypadbtn').forEach(b=>{
+      b.onclick = ()=>{
+        const k = b.dataset.key;
+        if(k==='back'){ buffer = buffer.slice(0,-1); errorMsg=''; draw(); return; }
+        if(buffer.length>=4) return;
+        errorMsg=''; buffer += k; draw();
+        if(buffer.length===4){
+          setTimeout(async ()=>{
+            const ok = await verifyPin(buffer);
+            if(ok){ enterApp(); }
+            else { errorMsg='Incorrect PIN. Please try again.'; buffer=''; draw(); }
+          }, 120);
+        }
+      };
+    });
+  }
+  draw();
+}
+function renderGateLock(){ showGateShell(); mountLockPin(); }
+
+/* Recovery requires BOTH the account name AND the personal security-question answer
+   set during onboarding — someone who only knows the user's name cannot reset the PIN. */
+function renderGateRecoverVerify(){
+  showGateShell();
+  const gate = document.getElementById('gate');
+  const q = (appMeta.profile && appMeta.profile.securityQuestion) || 'Security question';
+  gate.innerHTML = `
+    <div class="gatecard">
+      <h1 class="gate-title">Reset PIN</h1>
+      <p class="gate-sub">To verify this is your account, enter the information from setup.</p>
+      <div class="field"><label>Name</label><input type="text" id="r-name" placeholder="Your full name"></div>
+      <div class="field"><label>${q}</label><input type="text" id="r-answer" placeholder="Your answer"></div>
+      <div class="pin-error" id="r-error"></div>
+      <div class="gate-btnrow">
+        <button class="btn btn-ghost" id="g-back">Back to PIN</button>
+        <button class="btn btn-primary" id="g-verify">Verify</button>
+      </div>
+    </div>`;
+  document.getElementById('g-back').onclick = renderGateLock;
+  document.getElementById('g-verify').onclick = ()=>{
+    const name = document.getElementById('r-name').value.trim().toLowerCase();
+    const answer = document.getElementById('r-answer').value.trim().toLowerCase();
+    const p = appMeta.profile || {};
+    const nameOk = !!name && !!p.name && name===p.name.trim().toLowerCase();
+    const answerOk = !!answer && !!p.securityAnswer && answer===p.securityAnswer.trim().toLowerCase();
+    if(nameOk && answerOk){ renderGateNewPin(); }
+    else { document.getElementById('r-error').textContent = 'Verification failed. Please check your details and try again.'; }
+  };
+}
+function renderGateNewPin(){
+  showGateShell();
+  mountPinFlow(document.getElementById('gate'), {
+    title:'Create New PIN',
+    sub:'Choose a new 4-digit PIN.',
+    onSuccess: async (pin)=>{
+      await setPin(pin);
+      enterApp();
+      showToast('PIN updated');
+    }
+  });
+}
+
+function startApp(){
+  if(!appMeta.onboardingCompleted){
+    if(appMeta.profile && !appMeta.pinHash){ renderGatePinSetupOnly(); }
+    else { draftProfile = {name:'', userType:'', securityQuestion:'', securityAnswer:''}; renderGateWelcome(); }
+  } else {
+    renderGateLock();
+  }
+}
+function uid(){ return Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
+function round2(n){ return Math.round((n+Number.EPSILON)*100)/100; }
+function fmt(n){
+  const v = round2(n||0);
+  return PESO + v.toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function todayStr(){ return toDateStr(new Date()); }
+function toDateStr(d){
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function parseDate(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+function weekdayOf(dateStr){ return parseDate(dateStr).getDay(); }
+function isSchoolDay(dateStr){ return state.settings.schoolDays.includes(weekdayOf(dateStr)); }
+function niceDate(dateStr){
+  return parseDate(dateStr).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+}
+function niceDateFull(dateStr){
+  return parseDate(dateStr).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+}
+function startOfWeek(dateStr){
+  // Sunday-Saturday is the app's official week structure everywhere weeks are
+  // computed or displayed (Budget's weekly view, weekly summaries, etc.).
+  const d = parseDate(dateStr);
+  const day = d.getDay(); // 0=Sunday..6=Saturday
+  const sunday = new Date(d); sunday.setDate(d.getDate()-day);
+  return toDateStr(sunday);
+}
+function addDays(dateStr,n){ const d=parseDate(dateStr); d.setDate(d.getDate()+n); return toDateStr(d); }
+function monthKey(dateStr){ return dateStr.slice(0,7); }
+function daysInMonth(monthKeyStr){
+  const [y,m] = monthKeyStr.split('-').map(Number);
+  return new Date(y,m,0).getDate();
+}
+function schoolDaysInMonth(monthKeyStr){
+  const [y,m] = monthKeyStr.split('-').map(Number);
+  const total = daysInMonth(monthKeyStr);
+  let count=0;
+  for(let d=1; d<=total; d++){
+    const dt = new Date(y, m-1, d);
+    if(state.settings.schoolDays.includes(dt.getDay())) count++;
+  }
+  return count;
+}
+/* ============================= MONEY NODE HIERARCHY =============================
+   Every actual-money location in the app ("node") is identified by a single string
+   key used everywhere a transaction needs to say where money came from or went:
+     'cash'        — Funds → Cash on Hand (the only node with no bank record)
+     'fbank:<id>'  — Funds → E-Money → a specific Funds E-Bank (state.fundsBanks)
+     'sbank:<id>'  — Scholar Allowance → a specific Scholar E-Bank (state.scholarBanks)
+     'extra'       — Credits (Variance) — not part of Total Money, unaffected by
+                     this hierarchy change.
+   Funds = Cash on Hand + all Funds E-Banks. Scholar Allowance = all Scholar E-Banks
+   (it deliberately has no Cash on Hand and no separate "Scholar E-Money" layer — the
+   E-Banks themselves ARE the Scholar Allowance balance). Total Money = Funds +
+   Scholar Allowance only. */
+function nodeGroup(key){
+  if(key==='cash' || (key&&key.startsWith('fbank:'))) return 'funds';
+  if(key&&key.startsWith('sbank:')) return 'scholar';
+  if(key==='extra') return 'extra';
+  return null;
+}
+function fundsBankById(id){ return state.fundsBanks.find(b=>b.id===id); }
+function scholarBankById(id){ return state.scholarBanks.find(b=>b.id===id); }
+function fundsNodes(){ return ['cash', ...state.fundsBanks.map(b=>'fbank:'+b.id)]; }
+function scholarNodes(){ return state.scholarBanks.map(b=>'sbank:'+b.id); }
+function nodeLabel(key){
+  if(key==='cash') return 'Cash on Hand';
+  if(key==='extra') return 'Credits';
+  if(key&&key.startsWith('fbank:')){ const b=fundsBankById(key.slice(6)); return b? b.name : 'Funds E-Bank'; }
+  if(key&&key.startsWith('sbank:')){ const b=scholarBankById(key.slice(6)); return b? b.name : 'Scholar E-Bank'; }
+  return key;
+}
+/* accountLabel() names the top-level group a node belongs to (used anywhere the UI
+   previously said "Allowance"/"Scholar Allowance"/"Credits" generically). For a
+   specific node's own display name, use nodeLabel() instead. */
+function accountLabel(key){
+  const g = nodeGroup(key);
+  return g==='funds' ? 'Funds' : g==='scholar' ? 'Scholar Allowance' : 'Credits';
+}
+function addFundsBank(name){
+  name = (name||'').trim();
+  if(!name) return null;
+  if(state.fundsBanks.some(b=>b.name.toLowerCase()===name.toLowerCase())) return null;
+  const b = {id:uid(), name, createdAt:Date.now()};
+  state.fundsBanks.push(b);
+  return b;
+}
+function addScholarBank(name){
+  name = (name||'').trim();
+  if(!name) return null;
+  if(state.scholarBanks.some(b=>b.name.toLowerCase()===name.toLowerCase())) return null;
+  const b = {id:uid(), name, createdAt:Date.now()};
+  state.scholarBanks.push(b);
+  return b;
+}
+
+/* Expense type constants + label helper */
+const BUDGETED = 'budgeted';
+const NON_BUDGETED = 'non_budgeted';
+const SURPLUS = 'surplus';
+function expenseTypeLabel(t){ return t===BUDGETED ? 'Budgeted' : t===SURPLUS ? 'Surplus' : 'Non-Budgeted'; }
+
+/* ---- 1-month editability window (calendar month, based on createdAt) ---- */
+function editableUntil(createdAtMs){
+  const d = new Date(createdAtMs);
+  d.setMonth(d.getMonth()+1);
+  return d.getTime();
+}
+function canEdit(createdAtMs){
+  if(!createdAtMs) return true;
+  return Date.now() < editableUntil(createdAtMs);
+}
+
+function addHistory(type,label,amount,meta,transactionDate){
+  // transactionDate = the date the activity actually belongs to (defaults to today
+  // only for activity that has no other natural date, e.g. a debt payment made now).
+  // ts = when the record was entered, used only as a tie-breaker for same-day items,
+  // never as a substitute for the transaction date itself.
+  state.history.unshift({id:uid(), date:transactionDate||todayStr(), type, label, amount, meta:meta||{}, ts:Date.now()});
+  if(state.history.length>500) state.history.length=500;
+}
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer=setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+/* ============================= DERIVED (TRANSACTION-BASED) BALANCES ============================= */
+/* Balances are always derived from the underlying transaction ledger rather than
+   incrementally mutated, so editing a past transaction can never corrupt or double-count.
+   This works identically for ANY node key — 'cash', 'fbank:X', 'sbank:X' — since every
+   transaction (income, expense, transfer, debt payment) stores the exact node it
+   touched, not just a top-level group. */
+function computeAccountReceived(key){
+  if(key==='extra') return round2(state.extraTx.reduce((s,x)=>s+x.amount,0));
+  return round2(state.incomeTx.filter(x=>x.node===key).reduce((s,x)=>s+x.amount,0));
+}
+function computeAccountBalance(key){
+  if(key==='extra') return computeExtraMoneyBalance();
+  const inflow = computeAccountReceived(key);
+  // Every expense with a real money Source deducts from that node — Budgeted,
+  // Non-Budgeted, and Surplus alike. The one exception is a Non-Budgeted + "Wants"
+  // expense: it has no source at all (source stays null), because it becomes
+  // Personal Debt instead of an immediate deduction — so this filter naturally
+  // excludes it.
+  const outExpenses = round2(state.expenses.filter(e=>e.source===key).reduce((s,e)=>s+e.amount,0));
+  const outDebtPay = round2(state.debtPayments.filter(p=>p.source===key).reduce((s,p)=>s+p.amount,0));
+  // Transfers can move money between ANY two real-money nodes (within Funds, within
+  // Scholar Allowance, or between the two) — they relocate money, never create or
+  // destroy it, and never count as income.
+  const transferIn = round2(state.transfers.reduce((s,tx)=>tx.to===key? s+tx.amount : s, 0));
+  const transferOut = round2(state.transfers.reduce((s,tx)=>tx.from===key? s+tx.amount : s, 0));
+  return round2(inflow + transferIn - transferOut - outExpenses - outDebtPay);
+}
+function computeFundsBalance(){ return round2(fundsNodes().reduce((s,n)=>s+computeAccountBalance(n),0)); }
+function computeScholarBalance(){ return round2(scholarNodes().reduce((s,n)=>s+computeAccountBalance(n),0)); }
+
+/* Credits is a tracked SURPLUS/VARIANCE, never actual money — it is never added
+   to Total Money (see totalMoney()). It is derived live, never incrementally stored:
+     + Budget Excess entries (state.extraTx, created by syncDebtsAndExtras when a
+       closed budget day finished under its limit)
+     − Debt payments made using Credits (Overrun Debt / Personal Debt payoffs)
+     − Surplus-type expenses, which spend down accumulated Credits. A Surplus
+       expense ALSO deducts its full amount from its selected real money node
+       (Funds/Scholar Allowance) like any other real expense — see
+       computeAccountBalance() above — while separately consuming up to that same
+       amount from the Credits pool. Consumption is processed oldest-first and
+       capped at whatever is still available at that point, so Credits can never
+       go negative even if a Surplus expense's amount exceeds what was available when
+       it was recorded. */
+function computeExtraMoneyBalance(){
+  let bal = round2(state.extraTx.reduce((s,x)=>s+x.amount,0));
+  bal = round2(bal - state.debtPayments.filter(p=>p.source==='extra').reduce((s,p)=>s+p.amount,0));
+  if(bal<0) bal=0;
+  const surplusExpenses = state.expenses.filter(e=>e.expenseType===SURPLUS).slice().sort((a,b)=> a.date!==b.date ? (a.date<b.date?-1:1) : (a.createdAt||0)-(b.createdAt||0));
+  surplusExpenses.forEach(e=>{
+    const consume = Math.min(bal, e.amount);
+    bal = round2(bal - consume);
+  });
+  return round2(Math.max(0, bal));
+}
+function totalMoney(){
+  // Actual money only: Funds (Cash on Hand + Funds E-Banks) + Scholar Allowance
+  // (Scholar E-Banks). Credits is a tracked surplus/variance, never part of
+  // Total Money — see computeExtraMoneyBalance().
+  return round2(computeFundsBalance()+computeScholarBalance());
+}
+function totalDebt(){
+  return round2(state.debts.filter(d=>d.status==='active').reduce((s,d)=>s+d.remaining,0));
+}
+function totalOverrunDebt(){
+  return round2(state.debts.filter(d=>d.status==='active'&&d.debtType==='overrun').reduce((s,d)=>s+d.remaining,0));
+}
+function totalPersonalDebt(){
+  return round2(state.debts.filter(d=>d.status==='active'&&d.debtType==='personal').reduce((s,d)=>s+d.remaining,0));
+}
+function totalBorrowedDebt(){
+  return round2(state.debts.filter(d=>d.status==='active'&&d.debtType==='borrowed').reduce((s,d)=>s+d.remaining,0));
+}
+
+/* ============================= CORE MUTATIONS ============================= */
+function addIncome(node, amount, date, note){
+  amount = round2(amount);
+  state.incomeTx.unshift({id:uid(), node, amount, date, note:note||'', createdAt:Date.now()});
+  addHistory('income', `${accountLabel(node)} Added — ${nodeLabel(node)}`, amount, {node}, date);
+}
+
+/* Allowance <-> Scholar Allowance transfer. Credits is never a valid endpoint —
+   it only ever changes via budget excess, spending, or debt payment.
+   A transfer relocates money between categories; it is never counted as income
+   and never touches budget/excess/overrun/debt calculations. */
+function doTransfer(amount, from, to, date){
+  amount = round2(amount);
+  const validNode = (k)=> k==='cash' || (k&&k.startsWith('fbank:')) || (k&&k.startsWith('sbank:'));
+  if(!validNode(from) || !validNode(to)){
+    return {ok:false, msg:'Transfers are only allowed between Funds and Scholar Allowance nodes.'};
+  }
+  if(from===to) return {ok:false, msg:'Choose two different accounts.'};
+  if(!amount || amount<=0) return {ok:false, msg:'Enter a valid amount.'};
+  const bal = computeAccountBalance(from);
+  if(amount > bal+0.001) return {ok:false, msg:`Insufficient ${nodeLabel(from)} balance.`};
+  const txDate = date || todayStr();
+  state.transfers.unshift({id:uid(), amount, from, to, date:txDate, createdAt:Date.now(), status:'completed'});
+  addHistory('transfer', `${nodeLabel(from)} → ${nodeLabel(to)}`, amount, {from, to}, txDate);
+  return {ok:true};
+}
+
+/* Only Budgeted expenses linked to a budget day count toward that day's spending —
+   Non-Budgeted expenses always have budgetId=null and so are naturally excluded here. */
+function spentForBudget(budgetId){
+  return round2(state.expenses.filter(e=>e.budgetId===budgetId && e.expenseType===BUDGETED).reduce((s,e)=>s+e.amount,0));
+}
+
+/* Live, always-current result for a budget day — never relies on stale stored values. */
+function budgetResult(b){
+  const spent = spentForBudget(b.id);
+  // A future day hasn't happened yet — there is no final spending result, so excess
+  // and overrun must stay at zero until the day arrives (and ultimately closes).
+  if(b.date > todayStr()) return {spent, excess:0, overrun:0};
+  let excess = 0, overrun = 0;
+  if(spent < b.amount - 0.001) excess = round2(b.amount-spent);
+  else if(spent > b.amount + 0.001) overrun = round2(spent-b.amount);
+  return {spent, excess, overrun};
+}
+
+/* Non-Budgeted spending for a given date — purely informational, never feeds
+   into excess/overrun/debt/extra-money calculations. */
+function nonBudgetedSpentForDate(dateStr){
+  return round2(state.expenses.filter(e=>e.date===dateStr && e.expenseType===NON_BUDGETED).reduce((s,e)=>s+e.amount,0));
+}
+function nonBudgetedSpentForDates(dates){
+  const set = new Set(dates);
+  return round2(state.expenses.filter(e=>set.has(e.date) && e.expenseType===NON_BUDGETED).reduce((s,e)=>s+e.amount,0));
+}
+
+function getOrCreateBudget(date, amount, schoolDay){
+  let b = state.budgets.find(x=>x.date===date);
+  if(b){ b.amount=round2(amount); b.isSchoolDay=schoolDay; return b; }
+  b = {id:uid(), date, amount:round2(amount), isSchoolDay:schoolDay, closed:false, createdAt:Date.now()};
+  state.budgets.push(b);
+  state.budgets.sort((a,c)=>a.date<c.date?1:-1);
+  return b;
+}
+
+function closeBudget(b){
+  b.closed = true;
+  b.manuallyUnlocked = false;
+}
+/* Reversible unlock: clicking a FINALIZED budget returns it to editable. Without
+   manuallyUnlocked, a past-dated day would just get immediately re-closed by
+   autoCloseBudgets() on the very next render — this flag pauses that auto-close
+   until the user explicitly finalizes it again. */
+function reopenBudget(b){
+  b.closed = false;
+  b.manuallyUnlocked = true;
+}
+
+function autoCloseBudgets(){
+  const t = todayStr();
+  state.budgets.forEach(b=>{
+    if(!b.closed && !b.manuallyUnlocked && b.date < t){ b.closed = true; }
+  });
+}
+
+/* Validate a (new or edited) future-dated budget against currently available Total
+   Money — checked chronologically: the cumulative total of all future, non-cancelled
+   budgets up to and including this date must not exceed what's currently available.
+   Only applies to dates after today; today/past budgets are unaffected (they're
+   evaluated against actual spending, not planned future totals). */
+function validateFutureBudgetAmount(date, amount, excludeId){
+  const t = todayStr();
+  if(date<=t) return {ok:true};
+  const available = totalMoney();
+  const priorFuture = state.budgets
+    .filter(b=>b.date>t && b.date<=date && !b.cancelled && b.id!==excludeId)
+    .reduce((s,b)=>s+b.amount,0);
+  const cumulative = round2(priorFuture + amount);
+  if(cumulative > available+0.001){
+    return {ok:false, msg:`Not enough available money. Planned budgets through ${niceDate(date)} would total ${fmt(cumulative)}, but only ${fmt(available)} is available.`};
+  }
+  return {ok:true};
+}
+
+/* Re-checks all future budgets chronologically (nearest day first) whenever Total
+   Money may have changed, cancelling — and notifying about — any that are no longer
+   supported. Once cancelled, a budget stays cancelled (it never silently resurfaces
+   if money later increases); the user can create a new one instead. Idempotent: only
+   budgets not already flagged get cancelled, so this can safely run on every render()
+   without repeat notifications. */
+function enforceFutureBudgetLimits(){
+  const t = todayStr();
+  const available = totalMoney();
+  const future = state.budgets.filter(b=>b.date>t && !b.cancelled).sort((a,c)=>a.date<c.date?-1:1);
+  let cumulative = 0;
+  let firstCancelled = null;
+  future.forEach(b=>{
+    cumulative = round2(cumulative + b.amount);
+    if(cumulative > available+0.001){
+      b.cancelled = true;
+      if(!firstCancelled) firstCancelled = b;
+    }
+  });
+  if(firstCancelled){
+    showToast(`Future budget cancelled: ${niceDate(firstCancelled.date)} (${fmt(firstCancelled.amount)})`);
+  }
+}
+
+/* Keeps Credits and both Debt pools in sync, always re-derived live from the
+   underlying budgets/expenses rather than incremented — so editing a historical day
+   (adding a forgotten expense, correcting an amount, retyping Budgeted<->Non-Budgeted)
+   can never create duplicate Credits or duplicate debt; it just recomputes.
+
+   CRITICAL: a budget is a spending PLAN, not money. Assigning ₱150 to a school day —
+   whether that day is today, still in progress, or in the future — must never itself
+   add to Total Money, and its excess/overrun must never be finalized into real Extra
+   Money or Overrun Debt until that day has actually ended. "Ended" means the budget
+   is closed — which happens automatically once its date is in the past (see
+   autoCloseBudgets(), always run before this) or when the user finalizes it early.
+   Until then, budgetResult() can still be read live for an in-progress preview (e.g.
+   "so far" figures on Dashboard/Budget), but that preview never touches extraTx or
+   debts here.
+
+   Two independent sources feed the auto-generated Debt types (a third type, Normal
+   Debt, is entered manually and is untouched by this function — see addNormalDebt()):
+     - OVERRUN DEBT: one record per CLOSED budget day, amount = that day's final
+       overrun. Only Budgeted expenses count toward this — see spentForBudget()/
+       budgetResult(). Payable using Credits only.
+     - PERSONAL DEBT: one record per Non-Budgeted + "Wants" expense, amount = that
+       expense's amount, 1:1, applied immediately since it's a real decision to spend
+       beyond a need — this one is not date-gated. A Wants expense does NOT deduct
+       money from its source directly; instead the full amount becomes Personal Debt,
+       payable using Credits only.
+     - Non-Budgeted expenses in any OTHER category (Needs, Food, etc.) are a plain
+       direct deduction from their selected money source — no debt, no budget effect. */
+function syncDebtsAndExtras(){
+  // --- Budgeted-day driven: Credits + Overrun Debt (closed days only) ---
+  state.budgets.forEach(b=>{
+    const {excess, overrun} = budgetResult(b);
+    const finalized = !!b.closed; // day has actually ended (or was finalized early)
+
+    let ex = state.extraTx.find(x=>x.relatedBudgetId===b.id);
+    if(finalized && excess > 0.001){
+      if(ex){ ex.amount = excess; }
+      else {
+        ex = {id:uid(), amount:excess, source:'Budget Excess', date:b.date, relatedBudgetId:b.id};
+        state.extraTx.unshift(ex);
+        addHistory('extra', 'Budget Excess → Credits', excess, {budgetId:b.id}, b.date);
+      }
+    } else if(ex){
+      // Not finalized (or no longer in excess) — this budget must not be holding an
+      // Credits contribution yet.
+      state.extraTx = state.extraTx.filter(x=>x.id!==ex.id);
+    }
+
+    let d = state.debts.find(x=>x.relatedBudgetId===b.id && x.debtType==='overrun');
+    const totalPaid = d ? round2(state.debtPayments.filter(p=>p.debtId===d.id).reduce((s,p)=>s+p.amount,0)) : 0;
+    if(finalized && overrun > 0.001){
+      if(d){
+        d.amount = round2(Math.max(overrun, totalPaid));
+        d.remaining = round2(Math.max(0, overrun-totalPaid));
+        d.status = d.remaining<=0.001 ? 'paid' : 'active';
+      } else {
+        d = {id:uid(), amount:overrun, remaining:overrun, dateCreated:b.date, status:'active', debtType:'overrun', relatedBudgetId:b.id};
+        state.debts.unshift(d);
+        addHistory('debt', 'Budget Overrun → Overrun Debt', overrun, {budgetId:b.id}, b.date);
+      }
+    } else if(d){
+      if(totalPaid > 0.001){
+        d.amount = totalPaid; d.remaining = 0; d.status = 'paid';
+      } else {
+        state.debts = state.debts.filter(x=>x.id!==d.id);
+      }
+    }
+  });
+
+  // --- Non-Budgeted + Wants driven: Personal Debt, 1:1, never touches Credits ---
+  state.expenses.filter(e=>e.expenseType===NON_BUDGETED && e.category==='Wants').forEach(e=>{
+    let d = state.debts.find(x=>x.relatedExpenseId===e.id && x.debtType==='personal');
+    const totalPaid = d ? round2(state.debtPayments.filter(p=>p.debtId===d.id).reduce((s,p)=>s+p.amount,0)) : 0;
+    const amt = e.amount;
+    if(d){
+      d.amount = round2(Math.max(amt, totalPaid));
+      d.remaining = round2(Math.max(0, amt-totalPaid));
+      d.status = d.remaining<=0.001 ? 'paid' : 'active';
+    } else {
+      d = {id:uid(), amount:amt, remaining:amt, dateCreated:e.date, status:'active', debtType:'personal', relatedExpenseId:e.id};
+      state.debts.unshift(d);
+      addHistory('debt', 'Non-Budgeted Want → Personal Debt', amt, {expenseId:e.id}, e.date);
+    }
+  });
+  // Clean up Personal Debt whose source expense was deleted, or was retyped away from
+  // Non-Budgeted+Wants (e.g. edited to Budgeted, or category changed) — mirrors the
+  // overrun cleanup above. Manually-entered Normal (borrowed) debts are untouched here.
+  const activeWantsIds = new Set(state.expenses.filter(e=>e.expenseType===NON_BUDGETED && e.category==='Wants').map(e=>e.id));
+  state.debts = state.debts.filter(d=>{
+    if(d.debtType!=='personal' || activeWantsIds.has(d.relatedExpenseId)) return true;
+    const totalPaid = round2(state.debtPayments.filter(p=>p.debtId===d.id).reduce((s,p)=>s+p.amount,0));
+    if(totalPaid > 0.001){ d.amount = totalPaid; d.remaining = 0; d.status = 'paid'; d.relatedExpenseId = null; return true; }
+    return false;
+  });
+}
+
+function addExpense(data){
+  const amount = round2(parseFloat(data.amount));
+  const expenseType = (data.expenseType===BUDGETED || data.expenseType===SURPLUS) ? data.expenseType : NON_BUDGETED;
+  // Architecture rule: only a Budgeted expense ever carries a budgetId.
+  let budgetId = expenseType===BUDGETED ? (data.budgetId || null) : null;
+  const exp = {
+    id:uid(), amount, date:data.date, category:data.category, place:data.place||'',
+    item:data.item||'', notes:data.notes||'', photo:data.photo||null, source:data.source,
+    expenseType, budgetId,
+    createdAt: Date.now()
+  };
+  state.expenses.unshift(exp);
+  addHistory('expense', `${data.category}${data.place? ' / '+data.place:''}`, -amount, {source:data.source, expenseId:exp.id, expenseType}, data.date);
+  syncDebtsAndExtras();
+  return exp;
+}
+
+function payDebt(amount, source, debtType){
+  amount = round2(amount);
+  // Overrun Debt and Personal Debt can only ever be paid down using Credits —
+  // enforced here as well as in the UI. Normal (borrowed) Debt uses payNormalDebt().
+  if(source !== 'extra') return {ok:false, msg:'This debt can only be paid using Credits.'};
+  if(debtType!=='overrun' && debtType!=='personal') return {ok:false, msg:'Choose which debt to pay.'};
+  if(!amount || amount<=0) return {ok:false, msg:'Enter a valid amount.'};
+  const bal = computeAccountBalance('extra');
+  if(amount > bal+0.001) return {ok:false, msg:'Not enough Credits balance.'};
+  const label = debtType==='overrun' ? 'Overrun Debt' : 'Personal Debt';
+  const owed = debtType==='overrun' ? totalOverrunDebt() : totalPersonalDebt();
+  if(amount > owed+0.001) return {ok:false, msg:`That's more than the outstanding ${label} (${fmt(owed)}).`};
+  let remainingToPay = amount;
+  // Oldest debts of the chosen type are settled first.
+  const activeDebts = state.debts.filter(d=>d.status==='active' && d.debtType===debtType).sort((a,b)=>a.dateCreated<b.dateCreated?-1:1);
+  for(const d of activeDebts){
+    if(remainingToPay<=0) break;
+    const pay = Math.min(d.remaining, remainingToPay);
+    d.remaining = round2(d.remaining-pay);
+    remainingToPay = round2(remainingToPay-pay);
+    if(d.remaining<=0.001){ d.remaining=0; d.status='paid'; }
+    state.debtPayments.unshift({id:uid(), debtId:d.id, amount:pay, source:'extra', date:todayStr(), debtType});
+  }
+  addHistory('debtpay', `${label} Payment → Credits`, -amount, {source:'extra', debtType});
+  return {ok:true};
+}
+
+/* Normal Debt = money manually borrowed from another person. Entered directly by the
+   user (not derived from any expense), and is untouched by syncDebtsAndExtras(). */
+function addNormalDebt(data){
+  const amount = round2(parseFloat(data.amount));
+  const debt = {
+    id:uid(), amount, remaining:amount, dateCreated:data.date||todayStr(), status:'active',
+    debtType:'borrowed', person:data.person||'', reason:data.reason||'', photo:data.photo||null,
+    createdAt:Date.now()
+  };
+  state.debts.unshift(debt);
+  addHistory('debt', `Borrowed from ${data.person||'someone'}`, amount, {debtType:'borrowed'}, debt.dateCreated);
+  return debt;
+}
+
+/* Normal (borrowed) Debt is paid using Allowance or Scholar Allowance — never Extra
+   Money. Each borrowed debt is a distinct person/record, so payment targets one
+   specific debt rather than pooling oldest-first like Overrun/Personal Debt. */
+function payNormalDebt(debtId, amount, source){
+  amount = round2(amount);
+  const g = nodeGroup(source);
+  if(g!=='funds' && g!=='scholar') return {ok:false, msg:'Normal Debt can only be paid using Funds or Scholar Allowance.'};
+  const d = state.debts.find(x=>x.id===debtId && x.debtType==='borrowed');
+  if(!d) return {ok:false, msg:'Debt not found.'};
+  if(!amount || amount<=0) return {ok:false, msg:'Enter a valid amount.'};
+  if(amount > d.remaining+0.001) return {ok:false, msg:`That's more than the outstanding amount (${fmt(d.remaining)}).`};
+  const bal = computeAccountBalance(source);
+  if(amount > bal+0.001) return {ok:false, msg:`Insufficient ${nodeLabel(source)} balance.`};
+  d.remaining = round2(d.remaining-amount);
+  if(d.remaining<=0.001){ d.remaining=0; d.status='paid'; }
+  state.debtPayments.unshift({id:uid(), debtId:d.id, amount, source, date:todayStr(), debtType:'borrowed'});
+  addHistory('debtpay', `Normal Debt Payment (${d.person||'—'}) → ${nodeLabel(source)}`, -amount, {source, debtType:'borrowed'});
+  return {ok:true};
+}
+
+/* Edit a Normal (borrowed) Debt record — amount, person, date, reason, photo. If the
+   amount changes, remaining is recalculated against whatever has already been paid. */
+function editNormalDebt(id, data){
+  const d = state.debts.find(x=>x.id===id && x.debtType==='borrowed');
+  if(!d) return {ok:false, msg:'Debt not found.'};
+  if(!canEdit(d.createdAt)) return {ok:false, msg:'The one-month editing period for this debt has expired.'};
+  const newAmount = round2(parseFloat(data.amount));
+  if(!newAmount || newAmount<=0) return {ok:false, msg:'Enter a valid amount.'};
+  if(!data.person || !data.person.trim()) return {ok:false, msg:'Enter who you borrowed from.'};
+  const totalPaid = round2(state.debtPayments.filter(p=>p.debtId===d.id).reduce((s,p)=>s+p.amount,0));
+  d.amount = newAmount;
+  d.remaining = round2(Math.max(0, newAmount-totalPaid));
+  d.status = d.remaining<=0.001 ? 'paid' : 'active';
+  d.dateCreated = data.date || d.dateCreated;
+  d.person = data.person.trim();
+  d.reason = (data.reason||'').trim();
+  if(data.photo!==undefined) d.photo = data.photo;
+  return {ok:true};
+}
+
+/* Delete a Normal (borrowed) Debt record entirely. If payments were already made
+   toward it, deleting the debt also removes those payment records — which, because
+   Allowance/Scholar balances are always derived live, effectively returns that money
+   to its source (there is nothing left to justify the earlier deduction). */
+function deleteNormalDebtTx(id, force){
+  const d = state.debts.find(x=>x.id===id && x.debtType==='borrowed');
+  if(!d) return {ok:false, msg:'Debt not found.'};
+  if(!canEdit(d.createdAt)) return {ok:false, msg:'The one-month deletion period for this debt has expired.'};
+  const totalPaid = round2(state.debtPayments.filter(p=>p.debtId===id).reduce((s,p)=>s+p.amount,0));
+  if(totalPaid>0.001 && !force){
+    return {ok:false, needsForce:true, msg:`${fmt(totalPaid)} has already been paid toward this debt. Deleting it will also remove that payment record, returning the money to its source.`};
+  }
+  state.debtPayments = state.debtPayments.filter(p=>p.debtId!==id);
+  state.debts = state.debts.filter(x=>x.id!==id);
+  return {ok:true};
+}
+
+/* ============================= DELETION ============================= */
+/* Deleting a transaction must remove its financial effect entirely, not just hide it.
+   Because every balance is derived live from the underlying transaction arrays
+   (see computeAccountBalance/budgetResult/syncDebtsAndExtras above), the correct way
+   to reverse a transaction is simply to remove it from its source array and let every
+   dependent value re-derive itself — never a compensating "reversal" entry.
+
+   Before actually removing anything, we run the same removal against a throwaway
+   deep-cloned copy of state ("trial run") so we can see whether it would push any
+   account balance negative — i.e. whether money from this transaction has already
+   been spent, transferred out, or otherwise committed elsewhere. If so, the caller
+   can surface a clear warning instead of silently corrupting the ledger. */
+function trialRun(mutator){
+  const backup = JSON.parse(JSON.stringify(state));
+  mutator();
+  syncDebtsAndExtras();
+  const nodes = [...fundsNodes(), ...scholarNodes(), 'extra'];
+  const balances = {};
+  nodes.forEach(n=>{ balances[n] = computeAccountBalance(n); });
+  state = backup;
+  return balances;
+}
+
+/* Funds / Scholar Allowance income deletion. Only the affected node's own balance
+   can go negative from removing an income transaction (income never touches other
+   nodes), so that's the only check needed. */
+function deleteIncomeTx(id, force){
+  const tx = state.incomeTx.find(x=>x.id===id);
+  if(!tx) return {ok:false, msg:'Transaction not found.'};
+  if(!canEdit(tx.createdAt)) return {ok:false, msg:'The one-month deletion period for this transaction has expired.'};
+  const trial = trialRun(()=>{ state.incomeTx = state.incomeTx.filter(x=>x.id!==id); });
+  if(!force && trial[tx.node] < -0.001){
+    return {ok:false, needsForce:true, msg:`Deleting this brings ${nodeLabel(tx.node)} to ${fmt(trial[tx.node])} because some of this money has already been spent or transferred out.`};
+  }
+  state.incomeTx = state.incomeTx.filter(x=>x.id!==id);
+  syncDebtsAndExtras();
+  return {ok:true};
+}
+
+/* Expense deletion. Removing an expense only ever increases the balance of the
+   account it was paid from (an outflow disappears). If it was a Budgeted expense,
+   removing it can only ever increase a budget day's excess or decrease its overrun
+   (less spending) — syncDebtsAndExtras already resolves any resulting Credits /
+   Debt changes safely (see its own comments). Non-Budgeted expenses never touch the
+   budget system in the first place, so their deletion is purely a money-source reversal.
+   No additional negative-balance guard is required either way. */
+function deleteExpenseTx(id){
+  const exp = state.expenses.find(x=>x.id===id);
+  if(!exp) return {ok:false, msg:'Expense not found.'};
+  if(!canEdit(exp.createdAt)) return {ok:false, msg:'The one-month deletion period for this expense has expired.'};
+  state.expenses = state.expenses.filter(x=>x.id!==id);
+  syncDebtsAndExtras();
+  return {ok:true};
+}
+
+/* Transfer deletion. Reversing a transfer decreases the "to" account's balance
+   (its inflow disappears) — that's the account that may have already spent the
+   money — while the "from" account only ever increases, so only "to" needs checking. */
+function deleteTransferTx(id, force){
+  const tx = state.transfers.find(x=>x.id===id);
+  if(!tx) return {ok:false, msg:'Transfer not found.'};
+  if(!canEdit(tx.createdAt)) return {ok:false, msg:'The one-month deletion period for this transfer has expired.'};
+  const trial = trialRun(()=>{ state.transfers = state.transfers.filter(x=>x.id!==id); });
+  if(!force && trial[tx.to] < -0.001){
+    return {ok:false, needsForce:true, msg:`Deleting this transfer brings ${nodeLabel(tx.to)} to ${fmt(trial[tx.to])} because some of the transferred money has already been used.`};
+  }
+  state.transfers = state.transfers.filter(x=>x.id!==id);
+  syncDebtsAndExtras();
+  return {ok:true};
+}
+
+/* Budget deletion. A budget itself never held money, so there's no negative-balance
+   risk from removing it. Two things need cleanup:
+   1. Any expenses linked to it (budgetId) are unlinked and become Non-Budgeted —
+      they remain real transactions, they just stop counting toward a budget limit.
+   2. Any Credits / Overrun Debt already derived from this budget becomes
+      orphaned once the budget is gone (syncDebtsAndExtras only updates entries for
+      budgets that still exist), so we remove them explicitly here — preserving
+      already-paid amounts, same as the existing personal-debt cleanup pattern. */
+function deleteBudgetTx(id, force){
+  const b = state.budgets.find(x=>x.id===id);
+  if(!b) return {ok:false, msg:'Budget not found.'};
+  if(!canEdit(b.createdAt)) return {ok:false, msg:'The one-month deletion period for this budget has expired.'};
+  const linkedExpenses = state.expenses.filter(e=>e.budgetId===id);
+  if(linkedExpenses.length && !force){
+    return {ok:false, needsForce:true, msg:`This budget has ${linkedExpenses.length} linked expense(s). Deleting it will unlink them (they'll count as Non-Budgeted spending).`};
+  }
+  linkedExpenses.forEach(e=>{ e.budgetId=null; e.expenseType=NON_BUDGETED; });
+  state.budgets = state.budgets.filter(x=>x.id!==id);
+  const currentBudgetIds = new Set(state.budgets.map(x=>x.id));
+  state.extraTx = state.extraTx.filter(x=>!x.relatedBudgetId || currentBudgetIds.has(x.relatedBudgetId));
+  state.debts = state.debts.filter(d=>{
+    if(d.debtType!=='overrun' || !d.relatedBudgetId || currentBudgetIds.has(d.relatedBudgetId)) return true;
+    const totalPaid = round2(state.debtPayments.filter(p=>p.debtId===d.id).reduce((s,p)=>s+p.amount,0));
+    if(totalPaid>0.001){ d.amount=totalPaid; d.remaining=0; d.status='paid'; d.relatedBudgetId=null; return true; }
+    return false;
+  });
+  syncDebtsAndExtras();
+  return {ok:true};
+}
+
+/* ============================= RENDER SHELL ============================= */
+function buildNav(){
+  const side = document.getElementById('sidenav');
+  const bottom = document.getElementById('bottomnav');
+  side.innerHTML = `<div class="brand"><span class="brand-mark"></span>Ledger</div>` +
+    NAVS.map(n=>`<button class="navbtn ${n.id===currentTab?'active':''}" data-tab="${n.id}"><span class="dot"></span>${n.label}</button>`).join('');
+  bottom.innerHTML = NAVS.map(n=>`<button class="${n.id===currentTab?'active':''}" data-tab="${n.id}"><span class="ic">${n.icon}</span>${n.label}</button>`).join('');
+  const activeBtn = bottom.querySelector('button.active');
+  if(activeBtn && typeof activeBtn.scrollIntoView==='function') activeBtn.scrollIntoView({inline:'center', block:'nearest'});
+  [...side.querySelectorAll('[data-tab]'), ...bottom.querySelectorAll('[data-tab]')].forEach(btn=>{
+    btn.onclick = ()=>{
+      const goingToSettingsFresh = btn.dataset.tab==='settings' && currentTab!=='settings';
+      currentTab = btn.dataset.tab;
+      if(goingToSettingsFresh) settingsView = 'menu';
+      render();
+    };
+  });
+}
+
+function render(){
+  autoCloseBudgets();
+  enforceFutureBudgetLimits();
+  syncDebtsAndExtras();
+  buildNav();
+  const main = document.getElementById('main');
+  main.innerHTML = pageHTML(currentTab);
+  wirePageEvents(currentTab);
+  wireVisibilityToggles();
+  updateSaveIndicator();
+}
+
+function pageHTML(tab){
+  switch(tab){
+    case 'dashboard': return dashboardPage();
+    case 'money': return moneyPage();
+    case 'budget': return budgetPage();
+    case 'spending': return spendingPage();
+    case 'variance': return variancePage();
+    case 'insights': return insightsPage();
+    case 'settings': return settingsPage();
+    default: return '';
+  }
+}
+
+/* ============================= DASHBOARD ============================= */
+function greeting(){
+  const h = new Date().getHours();
+  const base = h<12 ? 'Good morning' : h<18 ? 'Good afternoon' : 'Good evening';
+  const name = appMeta.profile && appMeta.profile.name ? appMeta.profile.name.split(' ')[0] : '';
+  return name ? `${base}, ${name}` : base;
+}
+function calcAge(birthdate){
+  if(!birthdate) return null;
+  const b = parseDate(birthdate);
+  const t = new Date();
+  let age = t.getFullYear()-b.getFullYear();
+  const m = t.getMonth()-b.getMonth();
+  if(m<0 || (m===0 && t.getDate()<b.getDate())) age--;
+  return age;
+}
+
+function dashboardPage(){
+  const t = todayStr();
+  const budget = state.budgets.find(b=>b.date===t);
+  const res = budget? budgetResult(budget) : null;
+  const spentToday = budget? res.spent : 0;
+  const budgetAmt = budget? budget.amount : 0;
+  const remaining = budget? round2(budgetAmt-spentToday) : 0;
+  const pct = budget && budgetAmt>0 ? Math.min(100, Math.round((spentToday/budgetAmt)*100)) : 0;
+  const isOver = budget && res.overrun>0;
+  const recent = buildActivityFeed(6);
+
+  return `
+  <div class="pagehead">
+    <h1>${greeting()}</h1>
+    <div class="sub">${niceDateFull(t)}</div>
+  </div>
+
+  <div class="hero">
+    <div class="eyebrow">Total Money</div>
+    <div class="amount mono nowrap-amount">${maskedFmt(totalMoney(),'total')} ${eyeToggle('total','font-size:16px;vertical-align:middle;')}</div>
+  </div>
+
+  <div class="walletrow">
+    <div class="walletcard allowance"><div class="wlabel">Funds ${eyeToggle('funds')}</div><div class="wamt nowrap-amount">${maskedFmt(computeFundsBalance(),'funds')}</div></div>
+    <div class="walletcard scholar"><div class="wlabel">Scholar Allowance ${eyeToggle('scholar')}</div><div class="wamt nowrap-amount">${maskedFmt(computeScholarBalance(),'scholar')}</div></div>
+  </div>
+
+  <div class="sectiontitle">Today's budget</div>
+  ${budget ? `
+  <div class="card" style="margin-bottom:16px;cursor:pointer" data-tab="budget">
+    <div class="grid grid-3" style="margin-bottom:10px">
+      <div><div class="k" style="font-size:10.5px;color:var(--ink-soft);font-weight:700;text-transform:uppercase">Budget</div><div class="mono" style="font-size:16px;font-weight:600">${fmt(budgetAmt)}</div></div>
+      <div><div class="k" style="font-size:10.5px;color:var(--ink-soft);font-weight:700;text-transform:uppercase">Spent</div><div class="mono" style="font-size:16px;font-weight:600">${fmt(spentToday)}</div></div>
+      <div><div class="k" style="font-size:10.5px;color:var(--ink-soft);font-weight:700;text-transform:uppercase">${isOver?'Overrun':'Remaining'}</div><div class="mono" style="font-size:16px;font-weight:600;${isOver?'color:var(--debt)':'color:var(--allowance)'}">${fmt(isOver?res.overrun:remaining)}</div></div>
+    </div>
+    <div class="bartrack"><div class="barfill" style="width:${pct}%;background:${isOver?'var(--debt)':'var(--accent)'}"></div></div>
+  </div>
+  ` : `
+  <div class="card" style="margin-bottom:16px;color:var(--ink-soft);font-size:13.5px;cursor:pointer" data-tab="budget">
+    No budget set for today — manage it in Budget.
+  </div>
+  `}
+
+  <div class="sectiontitle">Variance</div>
+  <div class="card" style="margin-bottom:18px;cursor:pointer;display:flex;justify-content:space-between;align-items:center" data-tab="variance">
+    <div style="display:flex;gap:24px">
+      <div>
+        <div class="wlabel" style="color:var(--extra)">Credits</div>
+        <div class="amount mono nowrap-amount" style="font-size:22px;margin-top:4px">${fmt(computeAccountBalance('extra'))}</div>
+      </div>
+      <div>
+        <div class="wlabel" style="color:${totalDebt()>0?'var(--debt)':'var(--ink-soft)'}">Total Debt</div>
+        <div class="amount mono nowrap-amount" style="font-size:22px;margin-top:4px">${fmt(totalDebt())}</div>
+      </div>
+    </div>
+    <div style="color:var(--ink-faint);font-size:18px">›</div>
+  </div>
+
+  <div class="sectiontitle">Recent activity</div>
+  ${historyListHTML(recent)}
+  `;
+}
+
+/* Recent Activity is derived LIVE from the actual source records every time it's
+   built — never from a separately-stored log. This is the same "always derive, never
+   incrementally stored" principle used for every balance/total elsewhere in the app
+   (see computeAccountBalance, budgetResult, etc.), and it's what makes this correct:
+   a record's date field here is read straight from state.expenses/incomeTx/etc., so
+   editing an expense's date (or amount, or deleting it) is reflected immediately and
+   automatically — there is no separate copy of the date that can go stale or drift
+   from what the user actually set. */
+function buildActivityFeed(limit){
+  const items = [];
+  state.incomeTx.forEach(x=>{
+    items.push({type:'income', label:`${accountLabel(x.node)} Added — ${nodeLabel(x.node)}`, date:x.date, amount:x.amount, ts:x.createdAt||0, meta:{}});
+  });
+  state.expenses.forEach(e=>{
+    items.push({type:'expense', label:`${e.category}${e.place? ' / '+e.place:''}`, date:e.date, amount:-e.amount, ts:e.createdAt||0, meta:{expenseType:e.expenseType}});
+  });
+  state.transfers.forEach(t=>{
+    items.push({type:'transfer', label:`${nodeLabel(t.from)} → ${nodeLabel(t.to)}`, date:t.date, amount:t.amount, ts:t.createdAt||0, meta:{}});
+  });
+  state.extraTx.forEach(x=>{
+    items.push({type:'extra', label:'Budget Excess → Credits', date:x.date, amount:x.amount, ts:0, meta:{}});
+  });
+  state.debts.forEach(d=>{
+    const label = d.debtType==='overrun' ? 'Budget Overrun → Overrun Debt'
+      : d.debtType==='personal' ? 'Non-Budgeted Want → Personal Debt'
+      : `Borrowed from ${d.person||'someone'}`;
+    items.push({type:'debt', label, date:d.dateCreated, amount:d.amount, ts:d.createdAt||0, meta:{debtType:d.debtType}});
+  });
+  state.debtPayments.forEach(p=>{
+    const label = p.debtType==='overrun' ? 'Overrun' : p.debtType==='personal' ? 'Personal' : 'Normal';
+    items.push({type:'debtpay', label:`${label} Debt Payment → ${accountLabel(p.source)}`, date:p.date, amount:-p.amount, ts:0, meta:{}});
+  });
+  return items
+    .sort((a,b)=> b.date!==a.date ? (b.date>a.date?1:-1) : b.ts-a.ts)
+    .slice(0, limit);
+}
+
+function historyIcon(type){
+  switch(type){
+    case 'income': return {ic:'＋', bg:'var(--allowance-bg)', col:'var(--allowance)'};
+    case 'extra': return {ic:'✦', bg:'var(--extra-bg)', col:'var(--extra)'};
+    case 'expense': return {ic:'−', bg:'var(--paper)', col:'var(--ink-soft)'};
+    case 'debt': return {ic:'▲', bg:'var(--debt-bg)', col:'var(--debt)'};
+    case 'debtpay': return {ic:'✓', bg:'var(--debt-bg)', col:'var(--debt)'};
+    case 'transfer': return {ic:'⇄', bg:'var(--paper)', col:'var(--ink-soft)'};
+    default: return {ic:'•', bg:'var(--paper)', col:'var(--ink-soft)'};
+  }
+}
+function historyListHTML(items){
+  if(!items.length) return `<div class="receipt"><div class="empty">No activity yet — add an expense or income entry to get started.</div></div>`;
+  return `<div class="receipt">${items.map(h=>{
+    const {ic,bg,col} = historyIcon(h.type);
+    if(h.type==='transfer'){
+      // Transfers relocate money between categories — never shown as +/- income or spending.
+      return `<div class="rline" style="cursor:default">
+        <div class="rl-left">
+          <div class="ricon" style="background:${bg};color:${col}">${ic}</div>
+          <div class="rl-txt"><div class="rl-title">Transfer: ${h.label}</div><div class="rl-sub">${niceDate(h.date)}</div></div>
+        </div>
+        <div class="ramt mono" style="color:var(--ink-soft)">${fmt(Math.abs(h.amount))}</div>
+      </div>`;
+    }
+    const cls = h.amount>=0? 'pos':'neg';
+    const typeTag = h.type==='expense' && h.meta && h.meta.expenseType ? ` · ${expenseTypeLabel(h.meta.expenseType)}` : '';
+    return `<div class="rline" style="cursor:default">
+      <div class="rl-left">
+        <div class="ricon" style="background:${bg};color:${col}">${ic}</div>
+        <div class="rl-txt"><div class="rl-title">${h.label}</div><div class="rl-sub">${niceDate(h.date)}${typeTag}</div></div>
+      </div>
+      <div class="ramt ${cls}">${h.amount>=0?'+':'−'}${fmt(Math.abs(h.amount))}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+/* ============================= MONEY ============================= */
+let moneySubtab = 'total';
+function moneyPage(){
+  return `
+  <div class="sub" style="margin-bottom:16px">Your wallet — where every peso is and how it moves.</div>
+  <div class="moneytransfer-card" id="money-transfer">
+    <div class="moneytransfer-ic">⇄</div>
+    <div>
+      <div class="moneytransfer-title">Transfer Money</div>
+      <div class="moneytransfer-sub">Move money between Funds and Scholar Allowance nodes</div>
+    </div>
+  </div>
+  <div class="subtabs">
+    ${['total','funds','scholar','transfers'].map(k=>`<button class="subtab ${moneySubtab===k?'active':''}" data-sub="${k}">${k==='total'?'Total':k==='funds'?'Funds':k==='scholar'?'Scholar Allowance':'Transfers'}</button>`).join('')}
+  </div>
+  <div id="money-body">${moneySubtabHTML(moneySubtab)}</div>
+  `;
+}
+function moneySubtabHTML(k){
+  if(k==='total'){
+    return `
+    <div class="hero"><div class="eyebrow">Total Money</div><div class="amount mono">${maskedFmt(totalMoney(),'total')} ${eyeToggle('total','font-size:16px;vertical-align:middle;')}</div><div class="caption">Funds + Scholar Allowance</div></div>
+    <div class="grid grid-2">
+      ${groupMiniCard('funds')}${groupMiniCard('scholar')}
+    </div>
+    <div class="card" style="margin-top:14px;font-size:13px;color:var(--ink-soft)">Credits and Debt are tracked separately — see Variance.</div>
+    `;
+  }
+  if(k==='transfers'){
+    const list = [...state.transfers].sort((a,b)=> b.date!==a.date ? (b.date>a.date?1:-1) : (b.createdAt||0)-(a.createdAt||0));
+    return `
+    <div class="sectiontitle" style="margin-top:0">Transfer history</div>
+    ${list.length? `<div class="receipt">${list.map(x=>`
+      <div class="rline" style="cursor:default">
+        <div class="rl-left">
+          <div class="ricon" style="background:var(--paper);color:var(--ink-soft)">⇄</div>
+          <div class="rl-txt"><div class="rl-title">${nodeLabel(x.from)} (${accountLabel(x.from)}) → ${nodeLabel(x.to)} (${accountLabel(x.to)})</div><div class="rl-sub">${niceDate(x.date)} · ${x.status||'completed'}</div></div>
+        </div>
+        <div class="rline-actions">
+          <div class="ramt mono" style="color:var(--ink-soft)">${fmt(x.amount)}</div>
+          ${canEdit(x.createdAt) ? `<button class="deletebtn" data-delete-transfer="${x.id}">Delete</button>` : `<span class="expiredtag">Editing period expired</span>`}
+        </div>
+      </div>`).join('')}</div>` : `<div class="receipt"><div class="empty">No transfers yet.</div></div>`}
+    `;
+  }
+  // k === 'funds' or 'scholar'
+  const groupLabel = k==='funds' ? 'Funds' : 'Scholar Allowance';
+  const nodes = k==='funds' ? fundsNodes() : scholarNodes();
+  const groupBalance = k==='funds' ? computeFundsBalance() : computeScholarBalance();
+  const breakdown = nodes.map(n=>`
+    <div class="rline" style="cursor:default">
+      <div class="rl-left"><div class="rl-txt"><div class="rl-title">${nodeLabel(n)}</div></div></div>
+      <div class="ramt mono">${maskedFmt(computeAccountBalance(n),n)} ${eyeToggle(n)}</div>
+    </div>`).join('');
+
+  const income = state.incomeTx.filter(x=>nodeGroup(x.node)===k).map(x=>({id:x.id, title:`${x.note||groupLabel} · ${nodeLabel(x.node)}`, sub:niceDate(x.date), amount:x.amount, createdAt:x.createdAt, editable:true, node:x.node, sortDate:x.date, sortTs:x.createdAt||0, transfer:false}));
+  const transferIn = state.transfers.filter(t=>nodeGroup(t.to)===k).map(t=>({id:t.id, title:`Transfer in · ${nodeLabel(t.to)} ← ${nodeLabel(t.from)}`, sub:niceDate(t.date), amount:t.amount, editable:false, createdAt:t.createdAt, sortDate:t.date, sortTs:t.createdAt||0, transfer:true, dir:'in'}));
+  const transferOut = state.transfers.filter(t=>nodeGroup(t.from)===k).map(t=>({id:t.id, title:`Transfer out · ${nodeLabel(t.from)} → ${nodeLabel(t.to)}`, sub:niceDate(t.date), amount:t.amount, editable:false, createdAt:t.createdAt, sortDate:t.date, sortTs:t.createdAt||0, transfer:true, dir:'out'}));
+  const list = [...income, ...transferIn, ...transferOut].sort((a,b)=> b.sortDate!==a.sortDate ? (b.sortDate>a.sortDate?1:-1) : b.sortTs-a.sortTs);
+
+  return `
+  <div class="card" style="margin-bottom:10px">
+    <div class="wlabel" style="color:var(--${k==='funds'?'allowance':'scholar'})">${groupLabel} ${eyeToggle(k)}</div>
+    <div class="amount mono" style="font-size:32px;margin:6px 0">${maskedFmt(groupBalance,k)}</div>
+  </div>
+  <div class="receipt" style="margin-bottom:16px">${breakdown}</div>
+  <div class="actionrow">
+    <button class="btn btn-accent" id="money-add-${k}">＋ Add ${groupLabel}</button>
+    <button class="btn btn-ghost" id="money-addbank-${k}">＋ Add E-Bank</button>
+  </div>
+  <div class="sectiontitle">Transactions</div>
+  ${list.length? `<div class="receipt">${list.map(x=>`
+    <div class="rline" style="cursor:default">
+      <div class="rl-left">
+        <div class="ricon" style="background:var(--${k==='funds'?'allowance':'scholar'}-bg);color:var(--${k==='funds'?'allowance':'scholar'})">${x.transfer? '⇄':'+'}</div>
+        <div class="rl-txt"><div class="rl-title">${x.title}</div><div class="rl-sub">${x.sub}</div></div>
+      </div>
+      <div class="rline-actions">
+        <div class="ramt ${x.transfer && x.dir==='out'?'neg':'pos'}">${x.transfer && x.dir==='out'?'−':'+'}${fmt(x.amount)}</div>
+        ${x.editable
+          ? (canEdit(x.createdAt)
+              ? `<button class="editbtn" data-edit-income="${x.id}" data-income-group="${k}">Edit</button><button class="deletebtn" data-delete-income="${x.id}">Delete</button>`
+              : `<span class="expiredtag">Editing period expired</span>`)
+          : (x.transfer
+              ? (canEdit(x.createdAt)
+                  ? `<button class="deletebtn" data-delete-transfer="${x.id}">Delete</button>`
+                  : `<span class="expiredtag">Editing period expired</span>`)
+              : '')}
+      </div>
+    </div>`).join('')}</div>` : `<div class="receipt"><div class="empty">No transactions yet.</div></div>`}
+  `;
+}
+function groupMiniCard(k){
+  const groupLabel = k==='funds' ? 'Funds' : 'Scholar Allowance';
+  const bal = k==='funds' ? computeFundsBalance() : computeScholarBalance();
+  return `<div class="card"><div class="wlabel" style="color:var(--${k==='funds'?'allowance':'scholar'})">${groupLabel} ${eyeToggle(k)}</div><div class="amount mono" style="font-size:24px;margin-top:6px">${maskedFmt(bal,k)}</div></div>`;
+}
+
+/* ============================= BUDGET ============================= */
+function weekRangeData(dateStr){
+  const start = startOfWeek(dateStr);
+  const days = [...Array(7)].map((_,i)=>addDays(start,i));
+  return days;
+}
+/* Expected budget for a set of days = the actually-configured budget amount for each
+   configured school day, falling back to the current default only for school days that
+   don't have a budget entry yet. This makes weekly/monthly expected totals track the
+   live/active budget configuration instead of a hard-coded "5 school days" assumption. */
+function expectedForDays(days){
+  return round2(days.reduce((sum,d)=>{
+    if(!isSchoolDay(d)) return sum;
+    const b = state.budgets.find(x=>x.date===d);
+    return sum + (b ? b.amount : state.settings.defaultBudget);
+  },0));
+}
+let budgetViewDate = null; // which day's card is currently shown/editable in the Budget tab
+
+function budgetStatus(b){
+  if(b.cancelled) return 'Cancelled';
+  if(b.closed) return 'Finalized';
+  const t = todayStr();
+  if(b.date>t) return 'Upcoming';
+  if(b.date===t) return 'Active';
+  return 'Completed';
+}
+function budgetStatusColor(status){
+  return status==='Cancelled' ? 'var(--debt)' : status==='Active' ? 'var(--accent-ink)' : status==='Upcoming' ? 'var(--scholar)' : status==='Finalized' ? 'var(--allowance)' : 'var(--ink-soft)';
+}
+function budgetPage(){
+  const t = todayStr();
+  if(!budgetViewDate) budgetViewDate = t;
+  const viewBudget = state.budgets.find(b=>b.date===budgetViewDate);
+  const viewRes = viewBudget ? budgetResult(viewBudget) : null;
+  const nonBudgetedViewAmt = nonBudgetedSpentForDate(budgetViewDate);
+  // A budget day's own editability (its amount/source, and finalizing it) follows the
+  // same one-month window as everything else, keyed off when the budget entry was
+  // first created — NOT off today's date, so yesterday's or last week's budget stays
+  // fully editable, not locked the moment the calendar day ends.
+  const viewEditable = viewBudget ? canEdit(viewBudget.createdAt) : true;
+
+  const days = weekRangeData(budgetViewDate);
+  const weekBudgets = state.budgets.filter(b=>days.includes(b.date));
+  const expectedWeekly = expectedForDays(days);
+  const actualWeekly = round2(weekBudgets.reduce((s,b)=>s+budgetResult(b).spent,0));
+  const excessWeekly = round2(weekBudgets.reduce((s,b)=>s+budgetResult(b).excess,0));
+  const overrunWeekly = round2(weekBudgets.reduce((s,b)=>s+budgetResult(b).overrun,0));
+  const nonBudgetedWeekly = nonBudgetedSpentForDates(days);
+
+  const mKey = monthKey(t);
+  const monthDays = [...Array(daysInMonth(mKey))].map((_,i)=>`${mKey}-${String(i+1).padStart(2,'0')}`);
+  const monthBudgets = state.budgets.filter(b=>monthKey(b.date)===mKey);
+  const expectedMonthly = expectedForDays(monthDays);
+  const actualMonthly = round2(monthBudgets.reduce((s,b)=>s+budgetResult(b).spent,0));
+  const excessMonthly = round2(monthBudgets.reduce((s,b)=>s+budgetResult(b).excess,0));
+  const overrunMonthly = round2(monthBudgets.reduce((s,b)=>s+budgetResult(b).overrun,0));
+  const nonBudgetedMonthly = nonBudgetedSpentForDates(monthDays);
+  const debtPaidMonthly = round2(state.debtPayments.filter(p=>monthKey(p.date)===mKey).reduce((s,p)=>s+p.amount,0));
+
+  const history = state.budgets.slice(0,40);
+
+  return `
+  <div class="pagehead"><h1>Budget</h1><div class="sub">School-day budgeting, planned around your class schedule.</div></div>
+
+  <div class="sectiontitle" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+    <span>Browse days</span>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm" id="budget-prevweek">‹ Prev week</button>
+      ${budgetViewDate!==t? `<button class="btn btn-ghost btn-sm" id="budget-today">Today</button>`:''}
+      <button class="btn btn-ghost btn-sm" id="budget-nextweek">Next week ›</button>
+      <input type="date" id="budget-datejump" value="${budgetViewDate}" style="border:1px solid var(--card-line);border-radius:9px;padding:6px 10px;font-size:12.5px;background:var(--paper);color:var(--ink)">
+    </div>
+  </div>
+  <div class="weekstrip">
+    ${days.map(d=>{
+      const b = state.budgets.find(x=>x.date===d);
+      const off = !isSchoolDay(d);
+      const isToday = d===t;
+      const isSelected = d===budgetViewDate;
+      let icon='—', amt='';
+      if(b){
+        const r = budgetResult(b);
+        icon = r.excess>0?'🟢':r.overrun>0?'🔴':'⚪';
+        amt = fmt(r.spent);
+      }
+      return `<div class="wday ${off?'off':''} ${isToday?'today':''} ${isSelected?'selected':''}" data-day-select="${d}" style="cursor:pointer">
+        <div class="wd-name">${WEEKDAYS[weekdayOf(d)]}</div>
+        <div class="wd-status">${icon}</div>
+        <div class="wd-amt">${amt}</div>
+      </div>`;
+    }).join('')}
+  </div>
+
+  <div class="card" style="margin-bottom:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;flex-wrap:wrap">
+      <h3 style="margin:0">${budgetViewDate===t?"Today's Budget":'Budget'} — ${niceDate(budgetViewDate)}</h3>
+      ${viewBudget? `<span class="chip" style="background:transparent;border:1px solid var(--card-line);color:${budgetStatusColor(budgetStatus(viewBudget))}">${budgetStatus(viewBudget)}</span>` : ''}
+    </div>
+    ${viewBudget? `
+      <div class="grid grid-3" style="margin-bottom:12px">
+        <div><div class="k" style="font-size:11px;color:var(--ink-soft);font-weight:700;text-transform:uppercase">Budget</div><div class="mono" style="font-size:18px;font-weight:600">${fmt(viewBudget.amount)}</div></div>
+        <div><div class="k" style="font-size:11px;color:var(--ink-soft);font-weight:700;text-transform:uppercase">Budgeted Spent</div><div class="mono" style="font-size:18px;font-weight:600">${fmt(viewRes.spent)}</div></div>
+        <div><div class="k" style="font-size:11px;color:var(--ink-soft);font-weight:700;text-transform:uppercase">${viewRes.overrun>0?'Overrun so far':'Excess so far'}</div><div class="mono" style="font-size:18px;font-weight:600;${viewRes.overrun>0?'color:var(--debt)':''}">${fmt(viewRes.overrun>0?viewRes.overrun:viewRes.excess)}</div></div>
+      </div>
+      ${nonBudgetedViewAmt>0? `<div class="helptext" style="margin-bottom:12px">Non-Budgeted spending: <strong class="mono" style="color:var(--ink)">${fmt(nonBudgetedViewAmt)}</strong> (not counted above)</div>`:''}
+      ${viewBudget.closed ? `
+        <button type="button" id="budget-reopen-day" class="chip allowance" style="border:none;font-size:12.5px;padding:6px 14px;${viewEditable?'cursor:pointer':'cursor:default;opacity:.7'}" ${viewEditable?'':'disabled'}>FINALIZED${viewEditable? ' · tap to edit':''}</button>
+      ` : `
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${viewEditable? `<button class="btn btn-ghost btn-sm" id="budget-edit-day">Edit</button>` : ''}
+        ${viewEditable? `<button class="btn btn-danger btn-sm" id="budget-delete-day">Delete</button>` : ''}
+        ${viewEditable && !viewBudget.cancelled? `<button class="btn btn-accent btn-sm" id="budget-close-day">Finalize</button>`:''}
+        ${!viewEditable? `<span class="expiredtag">Editing period expired</span>`:''}
+      </div>
+      `}
+    ` : `
+      <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0">No budget set for this day yet.</p>
+      <button class="btn btn-primary btn-sm" id="budget-create-day">Set budget for this day</button>
+    `}
+  </div>
+
+  <div class="grid grid-2" style="margin-bottom:18px">
+    <div class="card">
+      <div class="sectiontitle" style="margin-top:0">Week of ${niceDate(days[0])}</div>
+      ${budgetSummaryRows({expected:expectedWeekly, actual:actualWeekly, excess:excessWeekly, overrun:overrunWeekly, nonBudgeted:nonBudgetedWeekly})}
+    </div>
+    <div class="card">
+      <div class="sectiontitle" style="margin-top:0">This month — ${parseDate(t+'').toLocaleDateString('en-US',{month:'long',year:'numeric'})}</div>
+      ${budgetSummaryRows({expected:expectedMonthly, actual:actualMonthly, excess:excessMonthly, overrun:overrunMonthly, nonBudgeted:nonBudgetedMonthly})}
+      <div style="display:flex;justify-content:space-between;font-size:12.8px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--card-line)">
+        <span style="color:var(--ink-soft)">Debt paid this month</span><span class="mono" style="font-weight:600">${fmt(debtPaidMonthly)}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sectiontitle">Budget history</div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Date</th><th>Budget</th><th>Spent</th><th>Result</th><th>Status</th></tr></thead>
+    <tbody>
+      ${history.length? history.map(b=>{
+        const r = budgetResult(b);
+        const status = budgetStatus(b);
+        return `
+        <tr>
+          <td>${niceDate(b.date)}</td>
+          <td>${fmt(b.amount)}</td>
+          <td>${fmt(r.spent)}</td>
+          <td>${r.excess>0? `<span class="tag-under">+${fmt(r.excess)}</span>` : r.overrun>0? `<span class="tag-over">−${fmt(r.overrun)}</span>`:'—'}</td>
+          <td style="color:${budgetStatusColor(status)};font-weight:600">${status}</td>
+        </tr>`;
+      }).join('') : `<tr><td colspan="5" style="font-family:'Inter',sans-serif;color:var(--ink-faint);text-align:center;padding:20px">No budgets yet.</td></tr>`}
+    </tbody>
+  </table></div>
+  `;
+}
+function budgetSummaryRows(d){
+  return `
+  <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:7px"><span style="color:var(--ink-soft)">Expected budget</span><span class="mono" style="font-weight:600">${fmt(d.expected)}</span></div>
+  <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:7px"><span style="color:var(--ink-soft)">Budgeted spending</span><span class="mono" style="font-weight:600">${fmt(d.actual)}</span></div>
+  <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:7px"><span style="color:var(--allowance)">Total excess</span><span class="mono" style="font-weight:600;color:var(--allowance)">${fmt(d.excess)}</span></div>
+  <div style="display:flex;justify-content:space-between;font-size:13px;${d.nonBudgeted!=null?'margin-bottom:7px':''}"><span style="color:var(--debt)">Total overrun</span><span class="mono" style="font-weight:600;color:var(--debt)">${fmt(d.overrun)}</span></div>
+  ${d.nonBudgeted!=null ? `<div style="display:flex;justify-content:space-between;font-size:13px;padding-top:7px;border-top:1px dashed var(--card-line)"><span style="color:var(--ink-soft)">Non-Budgeted spending</span><span class="mono" style="font-weight:600;color:var(--ink-soft)">${fmt(d.nonBudgeted)}</span></div>` : ''}
+  `;
+}
+
+/* ============================= SPENDING ============================= */
+function spendingPage(){
+  const expenses = [...state.expenses].sort((a,b)=> b.date!==a.date ? (b.date>a.date?1:-1) : (b.createdAt||0)-(a.createdAt||0)).slice(0,60);
+  const totalAll = round2(state.expenses.reduce((s,e)=>s+e.amount,0));
+  const totalBudgeted = round2(state.expenses.filter(e=>e.expenseType===BUDGETED).reduce((s,e)=>s+e.amount,0));
+  const totalNonBudgeted = round2(state.expenses.filter(e=>e.expenseType===NON_BUDGETED).reduce((s,e)=>s+e.amount,0));
+  const totalSurplus = round2(state.expenses.filter(e=>e.expenseType===SURPLUS).reduce((s,e)=>s+e.amount,0));
+  return `
+  <div class="pagehead"><h1>Spending</h1><div class="sub">Every peso, where it went.</div></div>
+  <div class="actionrow"><button class="btn btn-primary" id="spend-add">＋ Add Expense</button></div>
+
+  <div class="grid grid-4" style="margin-bottom:18px">
+    <div class="card"><div class="wlabel" style="color:var(--ink-soft)">Total Spending</div><div class="amount mono" style="font-size:22px;margin-top:6px">${fmt(totalAll)}</div></div>
+    <div class="card"><div class="wlabel" style="color:var(--allowance)">Budgeted</div><div class="amount mono" style="font-size:22px;margin-top:6px">${fmt(totalBudgeted)}</div></div>
+    <div class="card"><div class="wlabel" style="color:var(--ink-soft)">Non-Budgeted</div><div class="amount mono" style="font-size:22px;margin-top:6px">${fmt(totalNonBudgeted)}</div></div>
+    <div class="card"><div class="wlabel" style="color:var(--extra)">Surplus</div><div class="amount mono" style="font-size:22px;margin-top:6px">${fmt(totalSurplus)}</div></div>
+  </div>
+
+  <div class="sectiontitle">All expenses</div>
+  ${expenses.length? `<div class="receipt">${expenses.map(e=>`
+    <div class="rline" style="cursor:default" data-expense-row="${e.id}">
+      <div class="rl-left" data-expense="${e.id}" style="cursor:pointer">
+        <div class="ricon" style="background:var(--paper);color:var(--ink-soft)">${categoryIcon(e.category)}</div>
+        <div class="rl-txt"><div class="rl-title">${e.category}${e.place? ' · '+e.place:''}</div><div class="rl-sub">${niceDate(e.date)} · <span class="chip ${e.expenseType}" style="padding:1px 7px;font-size:10px">${expenseTypeLabel(e.expenseType)}</span> · ${e.source ? nodeLabel(e.source) : 'Personal Debt'}</div></div>
+      </div>
+      <div class="rline-actions">
+        <div class="ramt neg">−${fmt(e.amount)}</div>
+        ${canEdit(e.createdAt) ? `<button class="editbtn" data-edit-expense="${e.id}">Edit</button><button class="deletebtn" data-delete-expense="${e.id}">Delete</button>` : `<span class="expiredtag">Editing period expired</span>`}
+      </div>
+    </div>`).join('')}</div>` : `<div class="receipt"><div class="empty">No expenses recorded yet.</div></div>`}
+  `;
+}
+function categoryIcon(cat){
+  const m = {Food:'🍜', Transportation:'🚌', 'School Necessities':'📎', Needs:'🧺', Wants:'🎧'};
+  return m[cat] || '•';
+}
+
+/* ============================= DEBT ============================= */
+function extraMoneyHistoryList(){
+  const gains = state.extraTx.map(x=>({title:'Budget Excess', sub:niceDate(x.date), amount:x.amount, sortDate:x.date, sortTs:0, pos:true}));
+  const surplusUses = state.expenses.filter(e=>e.expenseType===SURPLUS).map(e=>({title:`Surplus — ${e.category}`, sub:niceDate(e.date), amount:e.amount, sortDate:e.date, sortTs:e.createdAt||0, pos:false}));
+  const debtPays = state.debtPayments.filter(p=>p.source==='extra').map(p=>({title:`Debt payment`, sub:niceDate(p.date), amount:p.amount, sortDate:p.date, sortTs:0, pos:false}));
+  return [...gains, ...surplusUses, ...debtPays].sort((a,b)=> b.sortDate!==a.sortDate ? (b.sortDate>a.sortDate?1:-1) : b.sortTs-a.sortTs).slice(0,20);
+}
+
+function variancePage(){
+  const active = state.debts.filter(d=>d.status==='active');
+  const byDateDesc = (a,b)=> b.dateCreated!==a.dateCreated ? (b.dateCreated>a.dateCreated?1:-1) : 0;
+  const overrunActive = active.filter(d=>d.debtType==='overrun').sort(byDateDesc);
+  const personalActive = active.filter(d=>d.debtType==='personal').sort(byDateDesc);
+  const borrowedActive = active.filter(d=>d.debtType==='borrowed').sort(byDateDesc);
+  const paid = [...state.debtPayments].sort((a,b)=> b.date!==a.date ? (b.date>a.date?1:-1) : 0).slice(0,20);
+  const extraBal = computeAccountBalance('extra');
+  const extraPayableTotal = round2(totalOverrunDebt()+totalPersonalDebt());
+  const debtTypeLabel = (t)=> t==='overrun'?'Overrun':t==='personal'?'Personal':'Normal';
+  const extraHistory = extraMoneyHistoryList();
+  return `
+  <div class="pagehead"><h1>Variance</h1><div class="sub">Track your credits and outstanding debts separately from Total Money.</div></div>
+
+  <div class="variance-grid">
+    <div class="variance-col variance-col-credits">
+      <div class="sectiontitle" style="margin-top:0">Credits</div>
+      <div class="card" style="margin-bottom:10px">
+        <div class="wlabel" style="color:var(--extra)">Total Credits</div>
+        <div class="amount mono" style="font-size:30px;margin:6px 0">${fmt(extraBal)}</div>
+        <div class="helptext">Not part of Total Money</div>
+      </div>
+      ${extraHistory.length? `<div class="receipt">${extraHistory.map(h=>`
+        <div class="rline" style="cursor:default">
+          <div class="rl-left">
+            <div class="ricon" style="background:var(--extra-bg);color:var(--extra)">${h.pos?'✦':'−'}</div>
+            <div class="rl-txt"><div class="rl-title">${h.title}</div><div class="rl-sub">${h.sub}</div></div>
+          </div>
+          <div class="ramt ${h.pos?'pos':'neg'}">${h.pos?'+':'−'}${fmt(h.amount)}</div>
+        </div>`).join('')}</div>` : `<div class="receipt"><div class="empty">No Credits activity yet.</div></div>`}
+    </div>
+
+    <div class="variance-col variance-col-debt">
+      <div class="sectiontitle" style="margin-top:0">Debt</div>
+      <div class="debtsummary">
+        <div class="debtsummary-total">
+          <div class="eyebrow" style="color:rgba(255,255,255,.75)">Total Debt</div>
+          <div class="amount mono nowrap-amount">${fmt(totalDebt())}</div>
+        </div>
+        <div class="debtsummary-split">
+          <div class="debtsummary-chip"><span class="k">Overrun</span><span class="v mono">${fmt(totalOverrunDebt())}</span></div>
+          <div class="debtsummary-chip"><span class="k">Personal</span><span class="v mono">${fmt(totalPersonalDebt())}</span></div>
+          <div class="debtsummary-chip"><span class="k">Normal</span><span class="v mono">${fmt(totalBorrowedDebt())}</span></div>
+        </div>
+      </div>
+
+      <div class="statusband flat" style="margin-bottom:16px">
+        <div class="sb-title">Credits available</div>
+        <div class="sb-figs"><div class="fig"><div class="v mono" style="font-size:18px">${fmt(extraBal)}</div></div></div>
+        ${extraPayableTotal>0? `<button class="btn btn-danger btn-sm" id="debt-pay">Pay with Credits</button>`:''}
+      </div>
+
+      <div class="sectiontitle">Overrun Debt <span style="font-weight:400;text-transform:none;color:var(--ink-faint)">· Payable only with Credits</span></div>
+      ${overrunActive.length? `<div class="receipt">${overrunActive.map(d=>`
+        <div class="rline" style="cursor:default">
+          <div class="rl-left">
+            <div class="ricon" style="background:var(--debt-bg);color:var(--debt)">▲</div>
+            <div class="rl-txt"><div class="rl-title">Overrun from ${niceDate(d.dateCreated)}</div><div class="rl-sub">Original ${fmt(d.amount)}</div></div>
+          </div>
+          <div class="ramt debtc">${fmt(d.remaining)}</div>
+        </div>`).join('')}</div>` : `<div class="receipt"><div class="empty">No active Overrun Debt.</div></div>`}
+
+      <div class="sectiontitle">Personal Debt <span style="font-weight:400;text-transform:none;color:var(--ink-faint)">· Payable only with Credits</span></div>
+      ${personalActive.length? `<div class="receipt">${personalActive.map(d=>`
+        <div class="rline" style="cursor:default">
+          <div class="rl-left">
+            <div class="ricon" style="background:var(--debt-bg);color:var(--debt)">●</div>
+            <div class="rl-txt"><div class="rl-title">Wants expense — ${niceDate(d.dateCreated)}</div><div class="rl-sub">Original ${fmt(d.amount)}</div></div>
+          </div>
+          <div class="ramt debtc">${fmt(d.remaining)}</div>
+        </div>`).join('')}</div>` : `<div class="receipt"><div class="empty">No active Personal Debt.</div></div>`}
+
+      <div class="sectiontitle" style="display:flex;justify-content:space-between;align-items:center">
+        <span>Normal Debt <span style="font-weight:400;text-transform:none;color:var(--ink-faint)">· Payable with Funds or Scholar Allowance</span></span>
+        <button class="btn btn-ghost btn-sm" id="debt-add-normal">＋ Add</button>
+      </div>
+      ${borrowedActive.length? `<div class="receipt">${borrowedActive.map(d=>`
+        <div class="rline" style="cursor:default">
+          <div class="rl-left" data-normal-detail="${d.id}" style="cursor:pointer">
+            <div class="ricon" style="background:var(--debt-bg);color:var(--debt)">◆</div>
+            <div class="rl-txt"><div class="rl-title">${d.person||'Someone'}${d.reason? ' · '+d.reason:''}</div><div class="rl-sub">${niceDate(d.dateCreated)} · Original ${fmt(d.amount)}</div></div>
+          </div>
+          <div class="rline-actions">
+            <div class="ramt debtc">${fmt(d.remaining)}</div>
+            <button class="btn btn-danger btn-sm" data-pay-normal="${d.id}">Pay</button>
+          </div>
+        </div>`).join('')}</div>` : `<div class="receipt"><div class="empty">No active Normal Debt.</div></div>`}
+
+      <div class="sectiontitle">Payment history</div>
+      ${paid.length? `<div class="receipt">${paid.map(p=>`
+        <div class="rline" style="cursor:default">
+          <div class="rl-left">
+            <div class="ricon" style="background:var(--allowance-bg);color:var(--allowance)">✓</div>
+            <div class="rl-txt"><div class="rl-title">${debtTypeLabel(p.debtType)} Debt — paid from ${accountLabel(p.source)}</div><div class="rl-sub">${niceDate(p.date)}</div></div>
+          </div>
+          <div class="ramt pos">${fmt(p.amount)}</div>
+        </div>`).join('')}</div>` : `<div class="receipt"><div class="empty">No payments made yet.</div></div>`}
+    </div>
+  </div>
+  `;
+}
+
+/* ============================= INSIGHTS ============================= */
+function insightsPage(){
+  const t = todayStr();
+  const mKey = monthKey(t);
+  const monthExpenses = state.expenses.filter(e=>monthKey(e.date)===mKey);
+  const byCat = {};
+  monthExpenses.forEach(e=>{ byCat[e.category]=(byCat[e.category]||0)+e.amount; });
+  const catEntries = Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+  const maxCat = catEntries.length? catEntries[0][1] : 1;
+  const totalSpentMonth = round2(monthExpenses.reduce((s,e)=>s+e.amount,0));
+  const budgetedSpentMonth = round2(monthExpenses.filter(e=>e.expenseType===BUDGETED).reduce((s,e)=>s+e.amount,0));
+  const nonBudgetedSpentMonth = round2(monthExpenses.filter(e=>e.expenseType===NON_BUDGETED).reduce((s,e)=>s+e.amount,0));
+
+  const monthBudgets = state.budgets.filter(b=>monthKey(b.date)===mKey && b.closed);
+  const results = monthBudgets.map(b=>budgetResult(b));
+  const underCount = results.filter(r=>r.excess>0).length;
+  const overCount = results.filter(r=>r.overrun>0).length;
+  const exactCount = monthBudgets.length-underCount-overCount;
+
+  return `
+  <div class="sub" style="margin-bottom:16px">${parseDate(t).toLocaleDateString('en-US',{month:'long',year:'numeric'})} at a glance.</div>
+
+  <div class="grid grid-3" style="margin-bottom:18px">
+    <div class="card"><div class="wlabel" style="color:var(--ink-soft)">Spent this month</div><div class="amount mono" style="font-size:22px;margin-top:6px">${fmt(totalSpentMonth)}</div></div>
+    <div class="card"><div class="wlabel" style="color:var(--allowance)">Under-budget days</div><div class="amount mono" style="font-size:22px;margin-top:6px">${underCount}</div></div>
+    <div class="card"><div class="wlabel" style="color:var(--debt)">Over-budget days</div><div class="amount mono" style="font-size:22px;margin-top:6px">${overCount}</div></div>
+  </div>
+
+  <div class="grid grid-2" style="margin-bottom:18px">
+    <div class="card"><div class="wlabel" style="color:var(--allowance)">Budgeted spending</div><div class="amount mono" style="font-size:22px;margin-top:6px">${fmt(budgetedSpentMonth)}</div></div>
+    <div class="card"><div class="wlabel" style="color:var(--ink-soft)">Non-Budgeted spending</div><div class="amount mono" style="font-size:22px;margin-top:6px">${fmt(nonBudgetedSpentMonth)}</div></div>
+  </div>
+
+  <div class="sectiontitle">Spending by category</div>
+  <div class="card">
+    ${catEntries.length? catEntries.map(([cat,amt])=>`
+      <div class="barrow">
+        <div class="brtop"><span class="cname">${categoryIcon(cat)} ${cat}</span><span class="camt">${fmt(amt)}</span></div>
+        <div class="bartrack"><div class="barfill" style="width:${Math.max(4,(amt/maxCat)*100)}%"></div></div>
+      </div>
+    `).join('') : `<div class="empty">No spending recorded this month yet.</div>`}
+  </div>
+
+  <div class="sectiontitle">Budget performance</div>
+  <div class="card" style="font-size:13.5px;color:var(--ink-soft)">
+    Out of <strong style="color:var(--ink)">${monthBudgets.length}</strong> closed budget day${monthBudgets.length===1?'':'s'} this month:
+    <span style="color:var(--allowance);font-weight:600">${underCount} under</span>,
+    <span style="color:var(--debt);font-weight:600">${overCount} over</span>,
+    and ${exactCount} exact. Only Budgeted expenses count toward this.
+  </div>
+  `;
+}
+
+/* ============================= SETTINGS ============================= */
+/* Settings is now a menu of 5 destinations rather than one long page. Money and
+   Insights are the SAME existing modules/functions (moneyPage(), insightsPage()) —
+   only their entry point moved; nothing about what they contain changed. */
+const SETTINGS_MENU = [
+  {id:'personal', label:'Personal Details', desc:'Your name, user type, and recovery details'},
+  {id:'privacy', label:'Privacy & Security', desc:'PIN lock and passcode'},
+  {id:'money', label:'Money', desc:'Funds, Scholar Allowance, E-Banks, transfers'},
+  {id:'insights', label:'Insights', desc:'Spending breakdown and budget performance'},
+  {id:'schooldays', label:'School Days', desc:'Weekly schedule and default budget'},
+];
+function settingsSubHeader(title){
+  return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+    <button type="button" class="btn btn-ghost btn-sm" id="settings-back" aria-label="Back to Settings">‹ Back</button>
+    <h1 style="font-size:20px;margin:0">${title}</h1>
+  </div>`;
+}
+function settingsPage(){
+  if(settingsView==='personal') return settingsPersonalPage();
+  if(settingsView==='privacy') return settingsPrivacyPage();
+  if(settingsView==='money') return settingsWrappedMoneyPage();
+  if(settingsView==='insights') return settingsWrappedInsightsPage();
+  if(settingsView==='schooldays') return settingsSchoolDaysPage();
+  return settingsMenuPage();
+}
+function settingsMenuPage(){
+  return `
+  <div class="pagehead"><h1>Settings</h1><div class="sub">Manage your profile, security, money, and schedule.</div></div>
+  <div class="receipt">
+    ${SETTINGS_MENU.map(item=>`
+      <div class="rline" data-settings-nav="${item.id}">
+        <div class="rl-left">
+          <div class="rl-txt"><div class="rl-title">${item.label}</div><div class="rl-sub">${item.desc}</div></div>
+        </div>
+        <div class="ramt mono" style="color:var(--ink-faint);font-weight:400">›</div>
+      </div>
+    `).join('')}
+  </div>
+  `;
+}
+function settingsPersonalPage(){
+  const p = appMeta.profile;
+  return `
+  ${settingsSubHeader('Personal Details')}
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+      <div>
+        <h3 style="margin-top:0;margin-bottom:4px">${p? p.name : 'Your profile'}</h3>
+        ${p? `<div style="color:var(--ink-soft);font-size:13px">${p.userType||''}</div>` : `<div style="color:var(--ink-soft);font-size:13px">Not set up yet.</div>`}
+      </div>
+      <button class="btn btn-ghost btn-sm" id="settings-editprofile">${p? 'Edit':'Set up'}</button>
+    </div>
+  </div>
+  `;
+}
+function settingsPrivacyPage(){
+  return `
+  ${settingsSubHeader('Privacy & Security')}
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <h3 style="margin:0">PIN Lock</h3>
+        <div style="color:var(--ink-soft);font-size:13px">Required every time the app is opened.</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="settings-changepin">Change PIN</button>
+    </div>
+  </div>
+  <div class="helptext">Balance visibility is controlled per-amount with the eye icon next to each number — there's no separate privacy toggle here.</div>
+
+  <div class="sectiontitle">Danger zone</div>
+  <div class="card" style="border-color:var(--debt)">
+    <h3 style="margin:0 0 4px 0;color:var(--debt)">Reset App Data</h3>
+    <div style="color:var(--ink-soft);font-size:13px;margin-bottom:12px">Permanently erases every Fund, Scholar Allowance, E-Bank, budget, expense, transfer, Credit, and Debt record, plus your PIN and profile. The app returns to first-time setup. This cannot be undone.</div>
+    <button class="btn btn-danger btn-sm" id="settings-reset-app">Reset App Data</button>
+  </div>
+  `;
+}
+function settingsSchoolDaysPage(){
+  return `
+  ${settingsSubHeader('School Days')}
+  <div class="card" style="margin-bottom:16px">
+    <h3 style="margin-top:0">School days</h3>
+    <p style="color:var(--ink-soft);font-size:13px;margin-top:-6px">Used to calculate your expected weekly and monthly budget.</p>
+    <div class="checkgrid" id="schooldays-grid">
+      ${WEEKDAYS.map((d,i)=>`<div class="checkday ${state.settings.schoolDays.includes(i)?'on':''}" data-day="${i}">${d}</div>`).join('')}
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <h3 style="margin-top:0">Default school-day budget</h3>
+    <div class="field" style="margin-bottom:8px">
+      <label>Amount (₱)</label>
+      <input type="number" id="set-defaultbudget" value="${state.settings.defaultBudget}" min="0" step="0.01">
+    </div>
+    <div class="field" style="margin-bottom:0">
+      <label>Default expense source</label>
+      <div id="set-src-picker">${moneyNodePickerHTML(state.settings.defaultSource, 'set-src')}</div>
+      <div class="helptext">Pre-selected as the "Deduct From" option when you add a new expense.</div>
+    </div>
+  </div>
+  <button class="btn btn-primary" id="settings-save">Save settings</button>
+  `;
+}
+function settingsWrappedMoneyPage(){
+  return `${settingsSubHeader('Money')}${moneyPage()}`;
+}
+function settingsWrappedInsightsPage(){
+  return `${settingsSubHeader('Insights')}${insightsPage()}`;
+}
+
+/* ============================= MODALS ============================= */
+function openModal(html){
+  document.getElementById('modalbody').innerHTML = html;
+  document.getElementById('overlay').classList.add('open');
+}
+function closeModal(){
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('modalbody').innerHTML = '';
+}
+document.getElementById('overlay').addEventListener('click', (e)=>{
+  if(e.target.id==='overlay') closeModal();
+});
+
+/* Inline E-Bank creation widget. Deliberately does NOT use window.prompt() — prompt()
+   is blocked or silently no-ops in many sandboxed/embedded browser contexts (this was
+   the actual root cause of "+ Add E-Bank" appearing broken: prompt() returning null
+   made every click look like it did nothing). Instead this swaps the button itself
+   for a real text input + Add/Cancel right in place, guaranteed to work anywhere a
+   normal form input works. onCreated(bank) fires with the new bank record on success;
+   onCancel() fires if the user backs out, so the caller can restore its prior state
+   without losing any other form data already entered. */
+function wireInlineAddBank(addBtn, group, onCreated, onCancel){
+  addBtn.onclick = ()=>{
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:6px;width:100%;flex-wrap:wrap';
+    wrap.innerHTML = `
+      <input type="text" placeholder="${group==='funds'?'Funds':'Scholar'} E-Bank name" style="flex:1;min-width:120px;border:1px solid var(--card-line);border-radius:10px;padding:7px 10px;font-size:13px;background:var(--paper);color:var(--ink)">
+      <button type="button" class="btn btn-primary btn-sm">Add</button>
+      <button type="button" class="btn btn-ghost btn-sm">Cancel</button>
+    `;
+    addBtn.replaceWith(wrap);
+    const input = wrap.querySelector('input');
+    const [saveBtn, cancelBtn] = wrap.querySelectorAll('button');
+    input.focus();
+    const doSave = ()=>{
+      const name = input.value.trim();
+      if(!name){ input.focus(); return; }
+      const bank = group==='funds' ? addFundsBank(name) : addScholarBank(name);
+      if(!bank){ showToast('That E-Bank name already exists'); input.focus(); return; }
+      scheduleSave();
+      onCreated(bank);
+    };
+    saveBtn.onclick = doSave;
+    input.onkeydown = (e)=>{ if(e.key==='Enter'){ e.preventDefault(); doSave(); } else if(e.key==='Escape'){ onCancel(); } };
+    cancelBtn.onclick = onCancel;
+  };
+}
+
+/* Two-tier money-node picker: choose Funds vs Scholar Allowance, then the specific
+   node within that group (Cash on Hand / a Funds E-Bank, or a Scholar E-Bank).
+   Credits is never offered here — it's not a valid expense/transfer/debt-payment
+   funding source; it only ever moves via Variance (Surplus expenses, debt payoffs).
+   Used by the Expense "Deduct From" field, Transfer From/To, and Normal Debt payment
+   source. Renders into a container with id `${idPrefix}-group` (the Funds/Scholar
+   toggle) followed by `${idPrefix}-node` (the specific node list) — call
+   wireMoneyNodePicker() after inserting this into the DOM to attach handlers. */
+function moneyNodePickerHTML(selectedNode, idPrefix, defaultGroup){
+  const group = selectedNode ? nodeGroup(selectedNode) : (defaultGroup||'funds');
+  const groupHTML = `<div class="radiogroup" id="${idPrefix}-group">
+    <button type="button" class="radiopill ${group==='funds'?'sel':''}" data-group="funds">Funds</button>
+    <button type="button" class="radiopill ${group==='scholar'?'sel':''}" data-group="scholar">Scholar Allowance</button>
+  </div>`;
+  let nodeHTML;
+  if(group==='funds'){
+    nodeHTML = `<div class="radiogroup" id="${idPrefix}-node" style="margin-top:8px">
+      <button type="button" class="radiopill ${selectedNode==='cash'?'sel':''}" data-node="cash">Cash on Hand · ${fmt(computeAccountBalance('cash'))}</button>
+      ${state.fundsBanks.map(b=>`<button type="button" class="radiopill ${selectedNode==='fbank:'+b.id?'sel':''}" data-node="fbank:${b.id}">${b.name} · ${fmt(computeAccountBalance('fbank:'+b.id))}</button>`).join('')}
+      <button type="button" class="radiopill" data-addbank="funds">+ Add E-Bank</button>
+    </div>`;
+  } else {
+    nodeHTML = `<div class="radiogroup" id="${idPrefix}-node" style="margin-top:8px">
+      ${state.scholarBanks.map(b=>`<button type="button" class="radiopill ${selectedNode==='sbank:'+b.id?'sel':''}" data-node="sbank:${b.id}">${b.name} · ${fmt(computeAccountBalance('sbank:'+b.id))}</button>`).join('')}
+      <button type="button" class="radiopill" data-addbank="scholar">+ Add E-Bank</button>
+      ${!state.scholarBanks.length? `<div class="helptext">Add a Scholar E-Bank first</div>`:''}
+    </div>`;
+  }
+  return groupHTML + nodeHTML;
+}
+/* onGroupChange(group) fires when the Funds/Scholar toggle changes; onNodeChange(node)
+   fires when a specific node is chosen (including right after creating a new E-Bank). */
+function wireMoneyNodePicker(idPrefix, onGroupChange, onNodeChange){
+  document.getElementById(idPrefix+'-group').querySelectorAll('[data-group]').forEach(b=>{
+    b.onclick = ()=> onGroupChange(b.dataset.group);
+  });
+  const nodeContainer = document.getElementById(idPrefix+'-node');
+  nodeContainer.querySelectorAll('[data-node]').forEach(b=>{
+    b.onclick = ()=> onNodeChange(b.dataset.node);
+  });
+  const addBtn = nodeContainer.querySelector('[data-addbank]');
+  if(addBtn){
+    const group = addBtn.dataset.addbank;
+    const currentSel = nodeContainer.querySelector('[data-node].sel');
+    const currentNode = currentSel ? currentSel.dataset.node : null;
+    wireInlineAddBank(addBtn, group,
+      (bank)=> onNodeChange(group==='funds' ? 'fbank:'+bank.id : 'sbank:'+bank.id),
+      ()=> onNodeChange(currentNode)
+    );
+  }
+}
+/* Node-only picker for a group that's already fixed (e.g. the "Add Funds" modal,
+   where the group is implied by which button the user clicked) — no Funds/Scholar
+   toggle, just the specific-node choices for that one group. */
+function moneyNodeOnlyHTML(group, selectedNode, idPrefix, fundsType){
+  if(group==='funds'){
+    const type = fundsType || (selectedNode && selectedNode.startsWith('fbank:') ? 'emoney' : 'cash');
+    let html = `<div class="radiogroup" id="${idPrefix}-type">
+      <button type="button" class="radiopill ${type==='cash'?'sel':''}" data-type="cash">Cash on Hand</button>
+      <button type="button" class="radiopill ${type==='emoney'?'sel':''}" data-type="emoney">E-Money</button>
+    </div>`;
+    if(type==='emoney'){
+      html += `<div class="radiogroup" id="${idPrefix}-node" style="margin-top:8px">
+        ${state.fundsBanks.map(b=>`<button type="button" class="radiopill ${selectedNode==='fbank:'+b.id?'sel':''}" data-node="fbank:${b.id}">${b.name}</button>`).join('')}
+        <button type="button" class="radiopill" data-addbank="funds">+ Add E-Bank</button>
+        ${!state.fundsBanks.length? `<div class="helptext">Add a Funds E-Bank to continue</div>`:''}
+      </div>`;
+    }
+    return html;
+  }
+  return `<div class="radiogroup" id="${idPrefix}-node">
+    ${state.scholarBanks.map(b=>`<button type="button" class="radiopill ${selectedNode==='sbank:'+b.id?'sel':''}" data-node="sbank:${b.id}">${b.name}</button>`).join('')}
+    <button type="button" class="radiopill" data-addbank="scholar">+ Add E-Bank</button>
+    ${!state.scholarBanks.length? `<div class="helptext">Add a Scholar E-Bank to continue</div>`:''}
+  </div>`;
+}
+function wireMoneyNodeOnly(idPrefix, group, onNodeChange, onTypeChange){
+  if(group==='funds'){
+    const typeContainer = document.getElementById(idPrefix+'-type');
+    if(typeContainer){
+      typeContainer.querySelectorAll('[data-type]').forEach(b=>{
+        b.onclick = ()=> onTypeChange(b.dataset.type);
+      });
+    }
+  }
+  const nodeContainer = document.getElementById(idPrefix+'-node');
+  if(!nodeContainer) return;
+  nodeContainer.querySelectorAll('[data-node]').forEach(b=>{
+    b.onclick = ()=> onNodeChange(b.dataset.node);
+  });
+  const addBtn = nodeContainer.querySelector('[data-addbank]');
+  if(addBtn){
+    const currentSel = nodeContainer.querySelector('[data-node].sel');
+    const currentNode = currentSel ? currentSel.dataset.node : null;
+    wireInlineAddBank(addBtn, group,
+      (bank)=> onNodeChange(group==='funds' ? 'fbank:'+bank.id : 'sbank:'+bank.id),
+      ()=> onNodeChange(currentNode)
+    );
+  }
+}
+
+/* Profile editing from Settings (post-onboarding). Name/User Type can be changed
+   freely; the security question/answer can also be updated here since the user is
+   already authenticated (no separate re-verification needed to edit your own
+   recovery details while logged in). */
+function modalEditProfile(){
+  const p = state && appMeta.profile ? appMeta.profile : {name:'', userType:'Student', securityQuestion:SECURITY_QUESTIONS[0], securityAnswer:''};
+  const isCustom = p.securityQuestion && !SECURITY_QUESTIONS.slice(0,4).includes(p.securityQuestion);
+  openModal(`
+    <button class="closex" id="m-close">✕</button>
+    <h3>Edit Profile</h3>
+    <div class="field"><label>Name</label><input type="text" id="ep-name" value="${(p.name||'').replace(/"/g,'&quot;')}"></div>
+    <div class="field"><label>User Type</label>
+      <select id="ep-usertype">${['Student','Guardian/Parent','Other'].map(o=>`<option ${p.userType===o?'selected':''}>${o}</option>`).join('')}</select>
+    </div>
+    <div class="field"><label>Security Question</label>
+      <select id="ep-question">${SECURITY_QUESTIONS.map(q=>`<option ${(isCustom&&q==='Custom question…')||p.securityQuestion===q?'selected':''}>${q}</option>`).join('')}</select>
+    </div>
+    <div class="field" id="ep-customq-wrap" style="display:${isCustom?'block':'none'}">
+      <label>Your custom question</label>
+      <input type="text" id="ep-customq" value="${isCustom?(p.securityQuestion||'').replace(/"/g,'&quot;'):''}">
+    </div>
+    <div class="field"><label>Answer</label><input type="text" id="ep-answer" value="${(p.securityAnswer||'').replace(/"/g,'&quot;')}"></div>
+    <div class="helptext">Your name and security answer are used to recover your PIN — keep the answer memorable but not easily guessed by others.</div>
+    <div class="modalfoot">
+      <button class="btn btn-ghost" id="m-cancel">Cancel</button>
+      <button class="btn btn-primary" id="ep-save">Save</button>
+    </div>
+  `);
+  document.getElementById('ep-question').onchange = (e)=>{
+    document.getElementById('ep-customq-wrap').style.display = e.target.value==='Custom question…' ? 'block':'none';
+  };
+  document.getElementById('m-close').onclick = closeModal;
+  document.getElementById('m-cancel').onclick = closeModal;
+  document.getElementById('ep-save').onclick = ()=>{
+    const name = document.getElementById('ep-name').value.trim();
+    const userType = document.getElementById('ep-usertype').value;
+    let question = document.getElementById('ep-question').value;
+    if(question==='Custom question…'){
+      question = document.getElementById('ep-customq').value.trim() || 'Custom question';
+    }
+    const answer = document.getElementById('ep-answer').value.trim();
+    if(!name){ showToast('Please enter your name'); return; }
+    if(!answer || answer.length<2){ showToast('Please set a security answer'); return; }
+    appMeta.profile = {...(appMeta.profile||{}), name, userType, securityQuestion:question, securityAnswer:answer};
+    scheduleSaveMeta(); closeModal(); render(); showToast('Profile updated');
+  };
+}
+
+function modalChangePin(){
+  openModal(`<button class="closex" id="m-close">✕</button><div id="pinflow-container"></div>`);
+  document.getElementById('m-close').onclick = closeModal;
+  mountPinFlow(document.getElementById('pinflow-container'), {
+    title:'Change PIN',
+    sub:'Enter a new 4-digit PIN.',
+    onSuccess: async (pin)=>{
+      await setPin(pin);
+      closeModal();
+      showToast('PIN updated');
+    }
+  });
+}
+
+function modalConfirmReset(){
+  openModal(`
+    <button class="closex" id="m-close">✕</button>
+    <h3 style="color:var(--debt)">Reset App Data</h3>
+    <p style="color:var(--ink-soft);font-size:13.5px;margin-top:-6px">This permanently erases ALL data — Funds, Scholar Allowance, E-Banks, budgets, expenses, transfers, Credits, and Debt. This cannot be undone.</p>
+    <div class="field"><label>Type RESET to confirm</label><input type="text" id="reset-confirm-input" placeholder="RESET"></div>
+    <div class="modalfoot">
+      <button class="btn btn-ghost" id="m-cancel">Cancel</button>
+      <button class="btn btn-danger" id="reset-confirm-save">Erase everything</button>
+    </div>
+  `);
+  document.getElementById('m-close').onclick = closeModal;
+  document.getElementById('m-cancel').onclick = closeModal;
+  const input = document.getElementById('reset-confirm-input');
+  input.focus();
+  document.getElementById('reset-confirm-save').onclick = ()=>{
+    if(input.value.trim() !== 'RESET'){ showToast('Type RESET exactly to confirm'); input.focus(); return; }
+    closeModal();
+    resetAllData();
+  };
+}
+
+function modalAddBank(group){
+  const groupLabel = group==='funds' ? 'Funds' : 'Scholar';
+  openModal(`
+    <button class="closex" id="m-close">✕</button>
+    <h3>Add ${groupLabel} E-Bank</h3>
+    <div class="field"><label>E-Bank name</label><input type="text" id="bank-name" placeholder="e.g. GCash"></div>
+    <div class="modalfoot">
+      <button class="btn btn-ghost" id="m-cancel">Cancel</button>
+      <button class="btn btn-primary" id="bank-save">Add</button>
+    </div>
+  `);
+  document.getElementById('m-close').onclick = closeModal;
+  document.getElementById('m-cancel').onclick = closeModal;
+  const nameInput = document.getElementById('bank-name');
+  nameInput.focus();
+  const doSave = ()=>{
+    const name = nameInput.value.trim();
+    if(!name){ showToast('Enter an E-Bank name'); nameInput.focus(); return; }
+    const bank = group==='funds' ? addFundsBank(name) : addScholarBank(name);
+    if(!bank){ showToast('That E-Bank name already exists'); nameInput.focus(); return; }
+    scheduleSave(); closeModal(); render(); showToast('E-Bank added');
+  };
+  document.getElementById('bank-save').onclick = doSave;
+  nameInput.onkeydown = (e)=>{ if(e.key==='Enter'){ e.preventDefault(); doSave(); } };
+}
+
+function modalIncome(group, existing){
+  const isEdit = !!existing;
+  const groupLabel = group==='funds' ? 'Funds' : 'Scholar Allowance';
+  let node = isEdit ? existing.node : (group==='funds' ? 'cash' : (state.scholarBanks[0] ? 'sbank:'+state.scholarBanks[0].id : null));
+  let fundsType = group==='funds' ? (node && node.startsWith('fbank:') ? 'emoney' : 'cash') : null;
+  const renderBody = ()=>`
+    <button class="closex" id="m-close">✕</button>
+    <h3>${isEdit? 'Edit':'Add'} ${groupLabel}</h3>
+    <div class="field"><label>Amount (₱)</label><input type="number" id="inc-amount" min="0" step="0.01" placeholder="0.00" value="${isEdit? existing.amount:''}"></div>
+    <div class="field"><label>${group==='funds'?'Type':'Scholar E-Bank'}</label>${moneyNodeOnlyHTML(group, node, 'inc', fundsType)}</div>
+    <div class="field"><label>Date received</label><input type="date" id="inc-date" value="${isEdit? existing.date:todayStr()}"></div>
+    <div class="field"><label>Note (optional)</label><input type="text" id="inc-note" placeholder="e.g. Weekly allowance" value="${isEdit? (existing.note||'').replace(/"/g,'&quot;'):''}"></div>
+    <div class="modalfoot">
+      <button class="btn btn-ghost" id="m-cancel">Cancel</button>
+      <button class="btn btn-primary" id="inc-save">${isEdit?'Save changes':'Add'}</button>
+    </div>
+  `;
+  const wire = ()=>{
+    document.getElementById('m-close').onclick = closeModal;
+    document.getElementById('m-cancel').onclick = closeModal;
+    wireMoneyNodeOnly('inc', group,
+      (n)=>{ node=n; if(group==='funds') fundsType = n==='cash'?'cash':'emoney'; refresh(); },
+      (t)=>{ fundsType=t; node = t==='cash' ? 'cash' : (state.fundsBanks[0] ? 'fbank:'+state.fundsBanks[0].id : null); refresh(); }
+    );
+    document.getElementById('inc-save').onclick = ()=>{
+      const amt = parseFloat(document.getElementById('inc-amount').value);
+      const date = document.getElementById('inc-date').value || todayStr();
+      const note = document.getElementById('inc-note').value.trim();
+      if(!amt || amt<=0){ showToast('Enter a valid amount'); return; }
+      if(!node){ showToast('Choose where this money goes'); return; }
+      if(isEdit){
+        const projectedBalance = computeAccountBalance(node) - (existing.node===node? existing.amount : 0) + amt;
+        if(projectedBalance < -0.001 && !confirm(`This will bring ${nodeLabel(node)} below zero (${fmt(projectedBalance)}). Continue anyway?`)) return;
+        existing.amount = round2(amt);
+        existing.date = date;
+        existing.note = note;
+        existing.node = node;
+        showToast(`${groupLabel} updated`);
+      } else {
+        addIncome(node, amt, date, note);
+        showToast(`${groupLabel} added`);
+      }
+      scheduleSave(); closeModal(); render();
+    };
+  };
+  const refresh = ()=>{
+    const amtVal = document.getElementById('inc-amount').value;
+    const dateVal = document.getElementById('inc-date').value;
+    const noteVal = document.getElementById('inc-note').value;
+    document.getElementById('modalbody').innerHTML = renderBody();
+    document.getElementById('inc-amount').value = amtVal;
+    document.getElementById('inc-date').value = dateVal;
+    document.getElementById('inc-note').value = noteVal;
+    wire();
+  };
+  openModal(renderBody());
+  wire();
+}
+
+function modalTransfer(){
+  let from = 'cash';
+  let to = state.fundsBanks[0] ? 'fbank:'+state.fundsBanks[0].id : (state.scholarBanks[0] ? 'sbank:'+state.scholarBanks[0].id : 'cash');
+  const renderBody = ()=>`
+    <button class="closex" id="m-close">✕</button>
+    <h3>Transfer Money</h3>
+    <p style="color:var(--ink-soft);font-size:12.5px;margin-top:-8px">Between Funds and Scholar Allowance nodes. Credits can't be transferred.</p>
+    <div class="field"><label>From</label>${moneyNodePickerHTML(from,'trf-from')}</div>
+    <div class="field"><label>To</label>${moneyNodePickerHTML(to,'trf-to')}</div>
+    <div class="field"><label>Amount (₱)</label><input type="number" id="trf-amount" min="0" step="0.01" placeholder="0.00"></div>
+    <div class="field"><label>Date</label><input type="date" id="trf-date" value="${todayStr()}"></div>
+    <div class="helptext" id="trf-avail">Available in ${nodeLabel(from)}: ${fmt(computeAccountBalance(from))}</div>
+    <div class="modalfoot" style="margin-top:14px">
+      <button class="btn btn-ghost" id="m-cancel">Cancel</button>
+      <button class="btn btn-primary" id="trf-save">Transfer</button>
+    </div>
+  `;
+  const wire = ()=>{
+    document.getElementById('m-close').onclick = closeModal;
+    document.getElementById('m-cancel').onclick = closeModal;
+    wireMoneyNodePicker('trf-from',
+      (group)=>{ from = group==='funds' ? 'cash' : (state.scholarBanks[0] ? 'sbank:'+state.scholarBanks[0].id : null); refresh(); },
+      (node)=>{ from = node; refresh(); }
+    );
+    wireMoneyNodePicker('trf-to',
+      (group)=>{ to = group==='funds' ? 'cash' : (state.scholarBanks[0] ? 'sbank:'+state.scholarBanks[0].id : null); refresh(); },
+      (node)=>{ to = node; refresh(); }
+    );
+    document.getElementById('trf-save').onclick = ()=>{
+      const amt = parseFloat(document.getElementById('trf-amount').value);
+      const date = document.getElementById('trf-date').value || todayStr();
+      if(!from || !to){ showToast('Choose both accounts (add an E-Bank if needed)'); return; }
+      const res = doTransfer(amt, from, to, date);
+      if(!res.ok){ showToast(res.msg); return; }
+      scheduleSave(); closeModal(); render(); showToast('Transfer complete');
+    };
+  };
+  const refresh = ()=>{
+    const amtVal = document.getElementById('trf-amount').value;
+    const dateVal = document.getElementById('trf-date').value;
+    document.getElementById('modalbody').innerHTML = renderBody();
+    document.getElementById('trf-amount').value = amtVal;
+    document.getElementById('trf-date').value = dateVal;
+    wire();
+  };
+  openModal(renderBody());
+  wire();
+}
+
+function modalBudget(existing, dateOverride){
+  const date = existing? existing.date : (dateOverride || todayStr());
+  const amount = existing? existing.amount : state.settings.defaultBudget;
+  openModal(`
+    <button class="closex" id="m-close">✕</button>
+    <h3>${existing? 'Edit':'Set'} School-Day Budget</h3>
+    <div class="field"><label>Date</label><input type="date" id="bud-date" value="${date}" ${existing?'disabled':''}></div>
+    <div class="field"><label>Amount (₱)</label><input type="number" id="bud-amount" min="0" step="0.01" value="${amount}"></div>
+    <div class="helptext">Spending limit only — no money moves</div>
+    <div class="modalfoot">
+      <button class="btn btn-ghost" id="m-cancel">Cancel</button>
+      <button class="btn btn-primary" id="bud-save">${existing?'Save':'Set budget'}</button>
+    </div>
+  `);
+  document.getElementById('m-close').onclick = closeModal;
+  document.getElementById('m-cancel').onclick = closeModal;
+  document.getElementById('bud-save').onclick = ()=>{
+    const d = document.getElementById('bud-date').value;
+    const amt = parseFloat(document.getElementById('bud-amount').value);
+    if(!amt || amt<0){ showToast('Enter a valid amount'); return; }
+    if(!d){ showToast('Choose a date'); return; }
+    const check = validateFutureBudgetAmount(d, amt, existing? existing.id : null);
+    if(!check.ok){ showToast(check.msg); return; }
+    const b = getOrCreateBudget(d, amt, isSchoolDay(d));
+    b.cancelled = false;
+    budgetViewDate = d;
+    scheduleSave(); closeModal(); render(); showToast('Budget saved');
+  };
+}
+
+async function fileToResizedDataURL(file, maxW){
+  maxW = maxW || 480;
+  return new Promise((resolve)=>{
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      const img = new Image();
+      img.onload = ()=>{
+        const scale = Math.min(1, maxW/img.width);
+        const w = Math.round(img.width*scale), h = Math.round(img.height*scale);
+        const canvas = document.createElement('canvas');
+        canvas.width=w; canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL('image/jpeg',0.62));
+      };
+      img.onerror = ()=>resolve(null);
+      img.src = e.target.result;
+    };
+    reader.onerror = ()=>resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
+
+function modalExpense(existingId, prefillDate){
+  const t = todayStr();
+  const existing = existingId ? state.expenses.find(e=>e.id===existingId) : null;
+  const isEdit = !!existing;
+  const initialDate = isEdit ? existing.date : (prefillDate || t);
+  let expenseType = existing? existing.expenseType : BUDGETED;
+  let category = existing? existing.category : (state.categories[0]||'Food');
+  const defaultSource = existing? (existing.source || state.settings.defaultSource || 'cash')
+    : (state.settings.defaultSource || 'cash');
+
+  const bodyHTML = ()=>{
+    const dateVal = document.getElementById('exp-date') ? document.getElementById('exp-date').value : initialDate;
+    const linkedBudget = state.budgets.find(x=>x.date===dateVal);
+    const isWantsDebt = expenseType===NON_BUDGETED && category==='Wants';
+    return `
+    <button class="closex" id="m-close">✕</button>
+    <h3>${isEdit?'Edit':'Add'} Expense</h3>
+    <div class="field"><label>Amount (₱)</label><input type="number" id="exp-amount" min="0" step="0.01" placeholder="0.00" value="${isEdit? existing.amount:''}"></div>
+    <div class="field"><label>Date</label><input type="date" id="exp-date" value="${initialDate}"></div>
+    <div class="field"><label>Category</label>
+      <select id="exp-category">
+        ${state.categories.map(c=>`<option value="${c}" ${category===c?'selected':''}>${c}</option>`).join('')}
+        <option value="__new__" ${category==='__new__'?'selected':''}>+ New category…</option>
+      </select>
+    </div>
+    <div class="field" id="exp-newcat-wrap" style="display:${category==='__new__'?'block':'none'}"><label>New category name</label><input type="text" id="exp-newcat"></div>
+    <div class="field"><label>Place / merchant (optional)</label><input type="text" id="exp-place" placeholder="e.g. Jollibee" value="${isEdit? (existing.place||'').replace(/"/g,'&quot;'):''}"></div>
+    <div class="field"><label>Item / description (optional)</label><input type="text" id="exp-item" placeholder="e.g. Chickenjoy meal" value="${isEdit? (existing.item||'').replace(/"/g,'&quot;'):''}"></div>
+
+    <div class="field">
+      <label>Expense Type</label>
+      <div class="radiogroup" id="exp-type">
+        <button type="button" class="radiopill ${expenseType===BUDGETED?'sel':''}" data-type="${BUDGETED}">Budgeted</button>
+        <button type="button" class="radiopill ${expenseType===NON_BUDGETED?'sel':''}" data-type="${NON_BUDGETED}">Non-Budgeted</button>
+        <button type="button" class="radiopill ${expenseType===SURPLUS?'sel':''}" data-type="${SURPLUS}">Surplus</button>
+      </div>
+      <div class="helptext">${expenseType===BUDGETED ? 'Counts toward today\'s budget' : expenseType===SURPLUS ? 'Uses Credits' : 'Not counted toward budget'}</div>
+    </div>
+
+    ${expenseType===BUDGETED ? `
+    <div class="field" id="exp-budget-wrap">
+      <label>Counts toward</label>
+      ${linkedBudget
+        ? `<div class="radiopill sel" style="pointer-events:none;display:inline-block">${niceDate(linkedBudget.date)} · limit ${fmt(linkedBudget.amount)}</div>`
+        : `<div class="helptext" style="color:var(--debt)">No budget set for this date — will save as Non-Budgeted.</div>`}
+    </div>` : ''}
+    ${expenseType===NON_BUDGETED && category==='Wants' ? `
+    <div class="helptext" style="margin-bottom:14px;color:var(--debt)">Becomes Personal Debt · Payable only with Credits</div>
+    ` : ''}
+    ${expenseType===SURPLUS ? `<div class="helptext" style="margin-bottom:10px">Available Credits: <strong class="mono">${fmt(computeAccountBalance('extra'))}</strong></div>` : ''}
+
+    ${isWantsDebt ? '' : `<div class="field"><label>Deduct From</label>${moneyNodePickerHTML(src, 'exp-source')}</div>`}
+
+    <div class="field"><label>Notes (optional)</label><textarea id="exp-notes" placeholder="Anything to remember about this">${isEdit? (existing.notes||''):''}</textarea></div>
+    <div class="field"><label>Photo (optional)</label>
+      <input type="file" id="exp-photo" accept="image/*">
+      <img id="exp-photo-preview" class="photopreview" style="${isEdit&&existing.photo?'display:block':''}" src="${isEdit&&existing.photo?existing.photo:''}">
+    </div>
+    <div class="modalfoot">
+      <button class="btn btn-ghost" id="m-cancel">Cancel</button>
+      <button class="btn btn-primary" id="exp-save">${isEdit?'Save changes':'Save expense'}</button>
+    </div>
+  `;
+  };
+
+  let src = defaultSource;
+  let photoData = isEdit? (existing.photo||null) : null;
+  openModal(bodyHTML());
+
+  const wire = ()=>{
+    const srcGroupContainer = document.getElementById('exp-source-group');
+    if(srcGroupContainer){
+      wireMoneyNodePicker('exp-source',
+        (group)=>{ src = group==='funds' ? 'cash' : (state.scholarBanks[0] ? 'sbank:'+state.scholarBanks[0].id : null); refresh(); },
+        (node)=>{ src = node; refresh(); }
+      );
+    }
+    document.getElementById('exp-type').querySelectorAll('[data-type]').forEach(b=>{
+      b.onclick = ()=>{
+        expenseType = b.dataset.type;
+        refresh();
+      };
+    });
+    document.getElementById('exp-date').onchange = ()=>{ refresh(); };
+    document.getElementById('exp-category').onchange = (e)=>{
+      category = e.target.value;
+      refresh();
+    };
+    document.getElementById('exp-photo').onchange = async (e)=>{
+      const f = e.target.files[0];
+      if(!f) return;
+      const preview = document.getElementById('exp-photo-preview');
+      photoData = await fileToResizedDataURL(f);
+      if(photoData){ preview.src = photoData; preview.style.display='block'; }
+    };
+    document.getElementById('m-close').onclick = closeModal;
+    document.getElementById('m-cancel').onclick = closeModal;
+    document.getElementById('exp-save').onclick = onSave;
+  };
+
+  // Preserve values that would otherwise be lost on refresh() (amount, notes, etc.)
+  const refresh = ()=>{
+    const amtVal = document.getElementById('exp-amount').value;
+    const dateVal = document.getElementById('exp-date').value;
+    const placeVal = document.getElementById('exp-place').value;
+    const itemVal = document.getElementById('exp-item').value;
+    const notesVal = document.getElementById('exp-notes').value;
+    document.getElementById('modalbody').innerHTML = bodyHTML();
+    document.getElementById('exp-amount').value = amtVal;
+    document.getElementById('exp-date').value = dateVal;
+    document.getElementById('exp-place').value = placeVal;
+    document.getElementById('exp-item').value = itemVal;
+    document.getElementById('exp-notes').value = notesVal;
+    const preview = document.getElementById('exp-photo-preview');
+    if(photoData){ preview.src = photoData; preview.style.display='block'; }
+    wire();
+  };
+
+  const onSave = ()=>{
+    const amount = parseFloat(document.getElementById('exp-amount').value);
+    const date = document.getElementById('exp-date').value || t;
+    let finalCategory = category;
+    if(finalCategory==='__new__'){
+      const nc = document.getElementById('exp-newcat').value.trim();
+      if(!nc){ showToast('Enter a category name'); return; }
+      finalCategory = nc;
+      if(!state.categories.includes(nc)) state.categories.push(nc);
+    }
+    const place = document.getElementById('exp-place').value.trim();
+    const item = document.getElementById('exp-item').value.trim();
+    const notes = document.getElementById('exp-notes').value.trim();
+    if(!amount || amount<=0){ showToast('Enter a valid amount'); return; }
+
+    // Resolve budget link: only Budgeted expenses ever get a budgetId, and only if
+    // a School-Day Budget (spending limit) actually exists for the chosen date.
+    const linkedBudget = state.budgets.find(x=>x.date===date);
+    let finalType = expenseType;
+    let budgetId = null;
+    if(finalType===BUDGETED){
+      if(linkedBudget){ budgetId = linkedBudget.id; }
+      else { finalType = NON_BUDGETED; showToast('No budget for that date — saved as Non-Budgeted'); }
+    }
+
+    // A Non-Budgeted "Wants" expense becomes Personal Debt instead of an immediate
+    // deduction — it has no money source at all. Budgeted and Surplus (and any other
+    // Non-Budgeted category) always require a real money source.
+    const isWantsDebt = finalType===NON_BUDGETED && finalCategory==='Wants';
+    let finalSource = null;
+    if(!isWantsDebt){
+      finalSource = src;
+      if(!finalSource){ showToast('Choose a money source (add an E-Bank if needed)'); return; }
+      const projectedBalance = computeAccountBalance(finalSource) - (isEdit && existing.source===finalSource ? existing.amount : 0) - amount;
+      if(projectedBalance < -0.001){
+        if(!confirm(`This will bring ${nodeLabel(finalSource)} below zero. Continue anyway?`)) return;
+      }
+    }
+    if(finalType===SURPLUS){
+      const availableExtra = computeAccountBalance('extra') + (isEdit && existing.expenseType===SURPLUS ? existing.amount : 0);
+      if(amount > availableExtra+0.001){
+        if(!confirm(`This uses more Credits than currently available (${fmt(availableExtra)}). Continue anyway?`)) return;
+      }
+    }
+
+    if(isEdit){
+      existing.amount = round2(amount);
+      existing.date = date;
+      existing.category = finalCategory;
+      existing.place = place;
+      existing.item = item;
+      existing.notes = notes;
+      existing.photo = photoData;
+      existing.source = finalSource;
+      existing.expenseType = finalType;
+      existing.budgetId = budgetId;
+      syncDebtsAndExtras();
+      scheduleSave(); closeModal(); render(); showToast('Expense updated');
+    } else {
+      addExpense({amount, date, category:finalCategory, place, item, notes, photo:photoData, source:finalSource, expenseType:finalType, budgetId});
+      scheduleSave(); closeModal(); render(); showToast(isWantsDebt ? 'Expense added — became Personal Debt' : 'Expense added');
+    }
+  };
+
+  wire();
+}
+
+function expenseDetailModal(id){
+  const e = state.expenses.find(x=>x.id===id);
+  if(!e) return;
+  const editable = canEdit(e.createdAt);
+  openModal(`
+    <button class="closex" id="m-close">✕</button>
+    <h3>${e.category}</h3>
+    <div class="field"><label>Amount</label><div class="mono" style="font-size:22px;font-weight:700">${fmt(e.amount)}</div></div>
+    <div class="field"><label>Expense Type</label><span class="chip ${e.expenseType}">${expenseTypeLabel(e.expenseType)}</span></div>
+    ${e.place? `<div class="field"><label>Place</label><div>${e.place}</div></div>`:''}
+    ${e.item? `<div class="field"><label>Item</label><div>${e.item}</div></div>`:''}
+    <div class="field"><label>Date</label><div>${niceDateFull(e.date)}</div></div>
+    <div class="field"><label>Payment source</label>${e.source ? `<span class="chip ${e.source}">${accountLabel(e.source)}</span>` : `<span class="chip debt">Personal Debt (unpaid)</span>`}</div>
+    ${e.notes? `<div class="field"><label>Notes</label><div>${e.notes}</div></div>`:''}
+    ${e.photo? `<div class="field"><label>Photo</label><img class="photopreview" style="display:block" src="${e.photo}"></div>`:''}
+    <div class="modalfoot">
+      <button class="btn btn-ghost" id="m-cancel">Close</button>
+      ${editable? `<button class="btn btn-danger" id="m-delete">Delete</button><button class="btn btn-primary" id="m-edit">Edit</button>` : ''}
+    </div>
+    ${!editable? `<div class="helptext" style="margin-top:8px;text-align:center">Editing period expired (one month after recording)</div>`:''}
+  `);
+  document.getElementById('m-close').onclick = closeModal;
+  document.getElementById('m-cancel').onclick = closeModal;
+  const editBtn = document.getElementById('m-edit');
+  if(editBtn) editBtn.onclick = ()=>{ closeModal(); modalExpense(e.id); };
+  const delBtn = document.getElementById('m-delete');
+  if(delBtn) delBtn.onclick = ()=>{ closeModal(); promptDeleteExpense(e.id); };
+}
+
+function modalPayDebt(){
+  const extraBal = computeAccountBalance('extra');
+  const owedOverrun = totalOverrunDebt();
+  const owedPersonal = totalPersonalDebt();
+  let debtType = owedOverrun>0 ? 'overrun' : 'personal';
+
+  const bodyHTML = ()=>{
+    const owed = debtType==='overrun' ? owedOverrun : owedPersonal;
+    const payAmt = Math.min(owed, extraBal);
+    return `
+    <button class="closex" id="m-close">✕</button>
+    <h3>Pay with Credits</h3>
+    <p style="color:var(--ink-soft);font-size:13px;margin-top:-8px">Credits available: <strong class="mono">${fmt(extraBal)}</strong></p>
+    <div class="field">
+      <label>Which debt?</label>
+      <div class="radiogroup" id="pay-type">
+        <button type="button" class="radiopill ${debtType==='overrun'?'sel':''} ${owedOverrun<=0?'disabled':''}" data-type="overrun" ${owedOverrun<=0?'disabled':''}>Overrun Debt · ${fmt(owedOverrun)}</button>
+        <button type="button" class="radiopill ${debtType==='personal'?'sel':''} ${owedPersonal<=0?'disabled':''}" data-type="personal" ${owedPersonal<=0?'disabled':''}>Personal Debt · ${fmt(owedPersonal)}</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Payment source</label>
+      <div class="radiopill sel" style="pointer-events:none;display:inline-block">Credits · ${fmt(extraBal)} available</div>
+    </div>
+    <div class="field"><label>Amount (₱)</label><input type="number" id="pay-amount" min="0" step="0.01" value="${payAmt>0?payAmt:''}"></div>
+    ${extraBal<=0 ? `<div class="helptext">No Credits available yet</div>` : ''}
+    <div class="modalfoot">
+      <button class="btn btn-ghost" id="m-cancel">Cancel</button>
+      <button class="btn btn-danger" id="pay-save" ${extraBal<=0||owed<=0?'disabled':''}>Confirm payment</button>
+    </div>
+  `;
+  };
+  const wire = ()=>{
+    document.getElementById('m-close').onclick = closeModal;
+    document.getElementById('m-cancel').onclick = closeModal;
+    document.getElementById('pay-type').querySelectorAll('[data-type]').forEach(b=>{
+      b.onclick = ()=>{
+        if(b.disabled) return;
+        debtType = b.dataset.type;
+        refresh();
+      };
+    });
+    document.getElementById('pay-save').onclick = ()=>{
+      const amt = parseFloat(document.getElementById('pay-amount').value);
+      if(!amt || amt<=0){ showToast('Enter a valid amount'); return; }
+      const res = payDebt(amt, 'extra', debtType);
+      if(!res.ok){ showToast(res.msg); return; }
+      scheduleSave(); closeModal(); render(); showToast('Debt payment recorded');
+    };
+  };
+  const refresh = ()=>{ document.getElementById('modalbody').innerHTML = bodyHTML(); wire(); };
+  openModal(bodyHTML());
+  wire();
+}
+
+/* Record money manually borrowed from another person. */
+function modalAddNormalDebt(existing){
+  const isEdit = !!existing;
+  openModal(`
+    <button class="closex" id="m-close">✕</button>
+    <h3>${isEdit?'Edit':'Add'} Normal Debt</h3>
+    <div class="field"><label>Borrowed from</label><input type="text" id="nd-person" placeholder="e.g. Ate Liza" value="${isEdit?(existing.person||'').replace(/"/g,'&quot;'):''}"></div>
+    <div class="field"><label>Amount (₱)</label><input type="number" id="nd-amount" min="0" step="0.01" placeholder="0.00" value="${isEdit?existing.amount:''}"></div>
+    <div class="field"><label>Date</label><input type="date" id="nd-date" value="${isEdit?existing.dateCreated:todayStr()}"></div>
+    <div class="field"><label>Reason / details (optional)</label><input type="text" id="nd-reason" placeholder="e.g. Emergency load" value="${isEdit?(existing.reason||'').replace(/"/g,'&quot;'):''}"></div>
+    <div class="field"><label>Photo (optional)</label>
+      <input type="file" id="nd-photo" accept="image/*">
+      <img id="nd-photo-preview" class="photopreview" style="${isEdit&&existing.photo?'display:block':''}" src="${isEdit&&existing.photo?existing.photo:''}">
+    </div>
+    <div class="helptext">Payable with Allowance or Scholar Allowance</div>
+    <div class="modalfoot">
+      <button class="btn btn-ghost" id="m-cancel">Cancel</button>
+      <button class="btn btn-primary" id="nd-save">${isEdit?'Save changes':'Add debt'}</button>
+    </div>
+  `);
+  let photoData = isEdit? (existing.photo||null) : null;
+  document.getElementById('m-close').onclick = closeModal;
+  document.getElementById('m-cancel').onclick = closeModal;
+  document.getElementById('nd-photo').onchange = async (e)=>{
+    const f = e.target.files[0];
+    if(!f) return;
+    const preview = document.getElementById('nd-photo-preview');
+    photoData = await fileToResizedDataURL(f);
+    if(photoData){ preview.src = photoData; preview.style.display='block'; }
+  };
+  document.getElementById('nd-save').onclick = ()=>{
+    const person = document.getElementById('nd-person').value.trim();
+    const amount = parseFloat(document.getElementById('nd-amount').value);
+    const date = document.getElementById('nd-date').value || todayStr();
+    const reason = document.getElementById('nd-reason').value.trim();
+    if(!person){ showToast('Enter who you borrowed from'); return; }
+    if(!amount || amount<=0){ showToast('Enter a valid amount'); return; }
+    if(isEdit){
+      const res = editNormalDebt(existing.id, {person, amount, date, reason, photo:photoData});
+      if(!res.ok){ showToast(res.msg); return; }
+      scheduleSave(); closeModal(); render(); showToast('Normal Debt updated');
+    } else {
+      addNormalDebt({person, amount, date, reason, photo:photoData});
+      scheduleSave(); closeModal(); render(); showToast('Normal Debt added');
+    }
+  };
+}
+
+function normalDebtDetailModal(id){
+  const d = state.debts.find(x=>x.id===id && x.debtType==='borrowed');
+  if(!d) return;
+  const editable = canEdit(d.createdAt);
+  openModal(`
+    <button class="closex" id="m-close">✕</button>
+    <h3>${d.person||'Someone'}</h3>
+    <div class="field"><label>Original amount</label><div class="mono" style="font-size:22px;font-weight:700">${fmt(d.amount)}</div></div>
+    <div class="field"><label>Remaining</label><div class="mono" style="font-size:16px;font-weight:600;color:var(--debt)">${fmt(d.remaining)}</div></div>
+    <div class="field"><label>Date</label><div>${niceDateFull(d.dateCreated)}</div></div>
+    ${d.reason? `<div class="field"><label>Reason</label><div>${d.reason}</div></div>`:''}
+    ${d.photo? `<div class="field"><label>Photo</label><img class="photopreview" style="display:block" src="${d.photo}"></div>`:''}
+    <div class="modalfoot">
+      <button class="btn btn-ghost" id="m-cancel">Close</button>
+      ${editable? `<button class="btn btn-danger" id="m-delete">Delete</button><button class="btn btn-primary" id="m-edit">Edit</button>` : ''}
+    </div>
+    ${!editable? `<div class="helptext" style="margin-top:8px;text-align:center">Editing period expired</div>`:''}
+  `);
+  document.getElementById('m-close').onclick = closeModal;
+  document.getElementById('m-cancel').onclick = closeModal;
+  const editBtn = document.getElementById('m-edit');
+  if(editBtn) editBtn.onclick = ()=>{ closeModal(); modalAddNormalDebt(d); };
+  const delBtn = document.getElementById('m-delete');
+  if(delBtn) delBtn.onclick = ()=>{ closeModal(); promptDeleteNormalDebt(d.id); };
+}
+
+function promptDeleteNormalDebt(id){
+  const d = state.debts.find(x=>x.id===id && x.debtType==='borrowed');
+  if(!d) return;
+  modalConfirmDelete({
+    title:'Delete Normal Debt?',
+    lines:[`${d.person||'Someone'}${d.reason? ' · '+d.reason:''} · ${fmt(d.amount)}`, niceDate(d.dateCreated)],
+    onConfirm: ()=>{
+      const res = deleteNormalDebtTx(d.id, false);
+      if(res.ok){ scheduleSave(); render(); showToast('Normal Debt deleted'); return; }
+      if(res.needsForce){
+        modalConfirmDelete({
+          title:'Delete Normal Debt?',
+          lines:[`${d.person||'Someone'} · ${fmt(d.amount)}`, niceDate(d.dateCreated)],
+          warn: res.msg,
+          onConfirm: ()=>{
+            const r2 = deleteNormalDebtTx(d.id, true);
+            if(r2.ok){ scheduleSave(); render(); showToast('Normal Debt deleted'); }
+            else showToast(r2.msg);
+          }
+        });
+        return;
+      }
+      showToast(res.msg);
+    }
+  });
+}
+
+/* Pay down one specific Normal (borrowed) Debt record using Allowance or Scholar Allowance. */
+function modalPayNormalDebt(debtId){
+  const d = state.debts.find(x=>x.id===debtId && x.debtType==='borrowed');
+  if(!d) return;
+  let source = 'cash';
+  const bodyHTML = ()=>`
+    <button class="closex" id="m-close">✕</button>
+    <h3>Pay Normal Debt</h3>
+    <p style="color:var(--ink-soft);font-size:13px;margin-top:-8px">${d.person||'—'}${d.reason? ' · '+d.reason:''} · Outstanding <strong class="mono">${fmt(d.remaining)}</strong></p>
+    <div class="field"><label>Pay from</label>${moneyNodePickerHTML(source,'ndp-source')}</div>
+    <div class="field"><label>Amount (₱)</label><input type="number" id="ndp-amount" min="0" step="0.01" value="${Math.min(d.remaining, computeAccountBalance(source))>0? Math.min(d.remaining, computeAccountBalance(source)):''}"></div>
+    <div class="modalfoot">
+      <button class="btn btn-ghost" id="m-cancel">Cancel</button>
+      <button class="btn btn-danger" id="ndp-save">Confirm payment</button>
+    </div>
+  `;
+  const wire = ()=>{
+    document.getElementById('m-close').onclick = closeModal;
+    document.getElementById('m-cancel').onclick = closeModal;
+    wireMoneyNodePicker('ndp-source',
+      (group)=>{ source = group==='funds' ? 'cash' : (state.scholarBanks[0] ? 'sbank:'+state.scholarBanks[0].id : null); refresh(); },
+      (node)=>{ source = node; refresh(); }
+    );
+    document.getElementById('ndp-save').onclick = ()=>{
+      const amt = parseFloat(document.getElementById('ndp-amount').value);
+      if(!amt || amt<=0){ showToast('Enter a valid amount'); return; }
+      if(!source){ showToast('Choose a money source (add an E-Bank if needed)'); return; }
+      const res = payNormalDebt(d.id, amt, source);
+      if(!res.ok){ showToast(res.msg); return; }
+      scheduleSave(); closeModal(); render(); showToast('Payment recorded');
+    };
+  };
+  const refresh = ()=>{ document.getElementById('modalbody').innerHTML = bodyHTML(); wire(); };
+  openModal(bodyHTML());
+  wire();
+}
+
+/* ---- Generic delete confirmation modal ---- */
+function modalConfirmDelete({title, lines, warn, onConfirm}){
+  openModal(`
+    <button class="closex" id="m-close">✕</button>
+    <h3>${title}</h3>
+    ${lines.map(l=>`<div style="font-size:13.5px;color:var(--ink-soft);margin-bottom:4px">${l}</div>`).join('')}
+    ${warn
+      ? `<div class="statusband over" style="margin-top:14px;margin-bottom:2px;font-size:12.8px;line-height:1.5">${warn}</div>`
+      : `<div class="helptext" style="margin-top:12px">This action cannot be undone.</div>`}
+    <div class="modalfoot" style="margin-top:16px">
+      <button class="btn btn-ghost" id="m-cancel">Cancel</button>
+      <button class="btn btn-danger" id="m-confirmdelete">${warn? 'Delete anyway':'Delete'}</button>
+    </div>
+  `);
+  document.getElementById('m-close').onclick = closeModal;
+  document.getElementById('m-cancel').onclick = closeModal;
+  document.getElementById('m-confirmdelete').onclick = ()=>{ closeModal(); onConfirm(); };
+}
+
+function promptDeleteIncome(id){
+  const tx = state.incomeTx.find(x=>x.id===id);
+  if(!tx) return;
+  const lines = [`${accountLabel(tx.node)} · ${nodeLabel(tx.node)} · ${fmt(tx.amount)}`, niceDate(tx.date), 'Deleting this transaction will remove its effect from your balance and history.'];
+  modalConfirmDelete({
+    title:'Delete Transaction?',
+    lines,
+    onConfirm: ()=>{
+      const res = deleteIncomeTx(tx.id, false);
+      if(res.ok){ scheduleSave(); render(); showToast('Transaction deleted'); return; }
+      if(res.needsForce){
+        modalConfirmDelete({
+          title:'Delete Transaction?',
+          lines:[`${accountLabel(tx.node)} · ${nodeLabel(tx.node)} · ${fmt(tx.amount)}`, niceDate(tx.date)],
+          warn: res.msg,
+          onConfirm: ()=>{
+            const r2 = deleteIncomeTx(tx.id, true);
+            if(r2.ok){ scheduleSave(); render(); showToast('Transaction deleted'); }
+            else showToast(r2.msg);
+          }
+        });
+        return;
+      }
+      showToast(res.msg);
+    }
+  });
+}
+
+function promptDeleteExpense(id){
+  const exp = state.expenses.find(x=>x.id===id);
+  if(!exp) return;
+  modalConfirmDelete({
+    title:'Delete Expense?',
+    lines:[
+      `${exp.category}${exp.place? ' · '+exp.place:''} · ${fmt(exp.amount)}`,
+      `${niceDate(exp.date)} · ${expenseTypeLabel(exp.expenseType)}`,
+      exp.expenseType===BUDGETED
+        ? 'This will remove it from spending history, budget calculations, category totals, and related financial calculations.'
+        : 'This will remove it from spending history and return the money to its source. It was never part of the school-day budget.'
+    ],
+    onConfirm: ()=>{
+      const res = deleteExpenseTx(exp.id);
+      if(res.ok){ scheduleSave(); render(); showToast('Expense deleted'); }
+      else showToast(res.msg);
+    }
+  });
+}
+
+function promptDeleteTransfer(id){
+  const tx = state.transfers.find(x=>x.id===id);
+  if(!tx) return;
+  modalConfirmDelete({
+    title:'Delete Transfer?',
+    lines:[`${accountLabel(tx.from)} → ${accountLabel(tx.to)} · ${fmt(tx.amount)}`, niceDate(tx.date)],
+    onConfirm: ()=>{
+      const res = deleteTransferTx(tx.id, false);
+      if(res.ok){ scheduleSave(); render(); showToast('Transfer deleted'); return; }
+      if(res.needsForce){
+        modalConfirmDelete({
+          title:'Delete Transfer?',
+          lines:[`${accountLabel(tx.from)} → ${accountLabel(tx.to)} · ${fmt(tx.amount)}`, niceDate(tx.date)],
+          warn: res.msg,
+          onConfirm: ()=>{
+            const r2 = deleteTransferTx(tx.id, true);
+            if(r2.ok){ scheduleSave(); render(); showToast('Transfer deleted'); }
+            else showToast(r2.msg);
+          }
+        });
+        return;
+      }
+      showToast(res.msg);
+    }
+  });
+}
+
+function promptDeleteBudget(id){
+  const b = state.budgets.find(x=>x.id===id);
+  if(!b) return;
+  modalConfirmDelete({
+    title:'Delete Budget?',
+    lines:[`${niceDate(b.date)} · ${fmt(b.amount)}`],
+    onConfirm: ()=>{
+      const res = deleteBudgetTx(b.id, false);
+      if(res.ok){ scheduleSave(); render(); showToast('Budget deleted'); return; }
+      if(res.needsForce){
+        modalConfirmDelete({
+          title:'Delete Budget?',
+          lines:[`${niceDate(b.date)} · ${fmt(b.amount)}`],
+          warn: res.msg,
+          onConfirm: ()=>{
+            const r2 = deleteBudgetTx(b.id, true);
+            if(r2.ok){ scheduleSave(); render(); showToast('Budget deleted'); }
+            else showToast(r2.msg);
+          }
+        });
+        return;
+      }
+      showToast(res.msg);
+    }
+  });
+}
+
+/* ============================= EVENT WIRING PER PAGE ============================= */
+function wirePageEvents(tab){
+  if(tab==='dashboard'){
+    document.querySelectorAll('[data-tab]').forEach(b=>{ if(!b.closest('.sidenav')&&!b.closest('.bottomnav')){ b.onclick = ()=>{ currentTab=b.dataset.tab; render(); }; } });
+  }
+  if(tab==='budget'){
+    const t = todayStr();
+    const cd = document.getElementById('budget-create-day'); if(cd) cd.onclick = ()=>modalBudget(null, budgetViewDate);
+    const ed = document.getElementById('budget-edit-day'); if(ed) ed.onclick = ()=>modalBudget(state.budgets.find(b=>b.date===budgetViewDate));
+    const dd = document.getElementById('budget-delete-day'); if(dd) dd.onclick = ()=>{
+      const b = state.budgets.find(x=>x.date===budgetViewDate);
+      if(b) promptDeleteBudget(b.id);
+    };
+    const cl = document.getElementById('budget-close-day'); if(cl) cl.onclick = ()=>{
+      const b = state.budgets.find(x=>x.date===budgetViewDate);
+      if(!b) return;
+      if(confirm(`Finalize the ${niceDate(budgetViewDate)} budget now? This locks in the amount; excess/overrun already reflects recorded spending.`)){
+        closeBudget(b);
+        syncDebtsAndExtras();
+        scheduleSave(); render(); showToast('Budget finalized');
+      }
+    };
+    const rp = document.getElementById('budget-reopen-day'); if(rp && !rp.disabled) rp.onclick = ()=>{
+      const b = state.budgets.find(x=>x.date===budgetViewDate);
+      if(!b) return;
+      reopenBudget(b);
+      syncDebtsAndExtras();
+      scheduleSave(); render(); showToast('Budget unlocked for editing');
+    };
+    document.querySelectorAll('[data-day-select]').forEach(el=>{
+      el.onclick = ()=>{ budgetViewDate = el.dataset.daySelect; render(); };
+    });
+    const pw = document.getElementById('budget-prevweek'); if(pw) pw.onclick = ()=>{ budgetViewDate = addDays(budgetViewDate, -7); render(); };
+    const nw = document.getElementById('budget-nextweek'); if(nw) nw.onclick = ()=>{ budgetViewDate = addDays(budgetViewDate, 7); render(); };
+    const bt = document.getElementById('budget-today'); if(bt) bt.onclick = ()=>{ budgetViewDate = t; render(); };
+    const dj = document.getElementById('budget-datejump'); if(dj) dj.onchange = ()=>{ if(dj.value){ budgetViewDate = dj.value; render(); } };
+  }
+  if(tab==='spending'){
+    document.getElementById('spend-add').onclick = ()=>modalExpense();
+    document.querySelectorAll('[data-expense]').forEach(el=>{
+      el.onclick = ()=>expenseDetailModal(el.dataset.expense);
+    });
+    document.querySelectorAll('[data-edit-expense]').forEach(el=>{
+      el.onclick = (ev)=>{ ev.stopPropagation(); modalExpense(el.dataset.editExpense); };
+    });
+    document.querySelectorAll('[data-delete-expense]').forEach(el=>{
+      el.onclick = (ev)=>{ ev.stopPropagation(); promptDeleteExpense(el.dataset.deleteExpense); };
+    });
+  }
+  if(tab==='variance'){
+    const pb = document.getElementById('debt-pay'); if(pb) pb.onclick = ()=>modalPayDebt();
+    const ad = document.getElementById('debt-add-normal'); if(ad) ad.onclick = ()=>modalAddNormalDebt();
+    document.querySelectorAll('[data-pay-normal]').forEach(el=>{
+      el.onclick = (ev)=>{ ev.stopPropagation(); modalPayNormalDebt(el.dataset.payNormal); };
+    });
+    document.querySelectorAll('[data-normal-detail]').forEach(el=>{
+      el.onclick = ()=>normalDebtDetailModal(el.dataset.normalDetail);
+    });
+  }
+  if(tab==='settings'){
+    if(settingsView==='menu'){
+      document.querySelectorAll('[data-settings-nav]').forEach(el=>{
+        el.onclick = ()=>{ settingsView = el.dataset.settingsNav; render(); };
+      });
+      return;
+    }
+    const backBtn = document.getElementById('settings-back');
+    if(backBtn) backBtn.onclick = ()=>{ settingsView = 'menu'; render(); };
+
+    if(settingsView==='personal'){
+      document.getElementById('settings-editprofile').onclick = ()=>modalEditProfile();
+    }
+    if(settingsView==='privacy'){
+      document.getElementById('settings-changepin').onclick = ()=>modalChangePin();
+      document.getElementById('settings-reset-app').onclick = ()=>modalConfirmReset();
+    }
+    if(settingsView==='money'){
+      document.getElementById('money-transfer').onclick = ()=>modalTransfer();
+      document.querySelectorAll('[data-sub]').forEach(b=>{
+        b.onclick = ()=>{ moneySubtab = b.dataset.sub; document.getElementById('money-body').innerHTML = moneySubtabHTML(moneySubtab);
+          document.querySelectorAll('[data-sub]').forEach(x=>x.classList.toggle('active', x.dataset.sub===moneySubtab));
+          wireMoneyBodyEvents();
+          wireVisibilityToggles();
+        };
+      });
+      wireMoneyBodyEvents();
+    }
+    if(settingsView==='schooldays'){
+      document.querySelectorAll('#schooldays-grid [data-day]').forEach(el=>{
+        el.onclick = ()=>{ el.classList.toggle('on'); };
+      });
+      const wireSrcPicker = ()=>{
+        wireMoneyNodePicker('set-src',
+          (group)=>{
+            const node = group==='funds' ? 'cash' : (state.scholarBanks[0] ? 'sbank:'+state.scholarBanks[0].id : null);
+            state.settings.defaultSource = node;
+            document.getElementById('set-src-picker').innerHTML = moneyNodePickerHTML(node, 'set-src');
+            wireSrcPicker(); scheduleSave();
+          },
+          (node)=>{
+            state.settings.defaultSource = node;
+            document.getElementById('set-src-picker').innerHTML = moneyNodePickerHTML(node, 'set-src');
+            wireSrcPicker(); scheduleSave();
+          }
+        );
+      };
+      wireSrcPicker();
+      document.getElementById('settings-save').onclick = ()=>{
+        const days = [...document.querySelectorAll('#schooldays-grid .on')].map(el=>parseInt(el.dataset.day));
+        const amt = parseFloat(document.getElementById('set-defaultbudget').value)||0;
+        state.settings.schoolDays = days;
+        state.settings.defaultBudget = amt;
+        scheduleSave(); showToast('Settings saved'); render();
+      };
+    }
+  }
+}
+function wireMoneyBodyEvents(){
+  ['funds','scholar'].forEach(k=>{
+    const btn = document.getElementById(`money-add-${k}`);
+    if(btn) btn.onclick = ()=>modalIncome(k);
+    const addBankBtn = document.getElementById(`money-addbank-${k}`);
+    if(addBankBtn) addBankBtn.onclick = ()=>modalAddBank(k);
+  });
+  document.querySelectorAll('[data-edit-income]').forEach(el=>{
+    el.onclick = ()=>{
+      const group = el.dataset.incomeGroup;
+      const tx = state.incomeTx.find(x=>x.id===el.dataset.editIncome);
+      if(tx) modalIncome(group, tx);
+    };
+  });
+  document.querySelectorAll('[data-delete-income]').forEach(el=>{
+    el.onclick = ()=>promptDeleteIncome(el.dataset.deleteIncome);
+  });
+  document.querySelectorAll('[data-delete-transfer]').forEach(el=>{
+    el.onclick = ()=>promptDeleteTransfer(el.dataset.deleteTransfer);
+  });
+}
+/* ============================= INIT ============================= */
+loadState();
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js", { scope: "./" })
+      .catch(err => console.warn("Ledger service worker registration failed:", err));
+  });
+}
+</script>
+</body>
+</html>

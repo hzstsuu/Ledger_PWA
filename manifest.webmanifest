@@ -1,0 +1,19 @@
+{
+  "name": "Ledger \u2014 Student Budget Tracker",
+  "short_name": "Ledger",
+  "description": "Ledger \u2014 a student budget tracker for allowance, scholar allowance, and school-day budgeting.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F1F3EC",
+  "theme_color": "#16261F",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
