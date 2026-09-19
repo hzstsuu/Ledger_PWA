@@ -726,6 +726,7 @@ async function loadState(){
   migrateExpenseTypes();
   migrateFundsHierarchy();
   migrateDebtAndBudgetModel();
+  migrateSchoolDayConfigs();
   autoCloseBudgets();
   startApp();
 }
@@ -1182,7 +1183,7 @@ function toDateStr(d){
 }
 function parseDate(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
 function weekdayOf(dateStr){ return parseDate(dateStr).getDay(); }
-function isSchoolDay(dateStr){ return state.settings.schoolDays.includes(weekdayOf(dateStr)); }
+function isSchoolDay(dateStr){ return schoolDaysForDate(dateStr).includes(weekdayOf(dateStr)); }
 function niceDate(dateStr){
   return parseDate(dateStr).toLocaleDateString('en-US',{month:'short',day:'numeric'});
 }
@@ -1204,14 +1205,82 @@ function daysInMonth(monthKeyStr){
   return new Date(y,m,0).getDate();
 }
 function schoolDaysInMonth(monthKeyStr){
-  const [y,m] = monthKeyStr.split('-').map(Number);
   const total = daysInMonth(monthKeyStr);
   let count=0;
   for(let d=1; d<=total; d++){
-    const dt = new Date(y, m-1, d);
-    if(state.settings.schoolDays.includes(dt.getDay())) count++;
+    const ds = `${monthKeyStr}-${String(d).padStart(2,'0')}`;
+    if(isSchoolDay(ds)) count++;
   }
   return count;
+}
+
+/* ============================= SCHOOL DAY CONFIGURATION HISTORY =============================
+   "School Days" describes an ongoing habit that can change over time (e.g. a new
+   class schedule mid-semester) — it is NOT a permanent rule that should be replayed
+   backwards over already-established budgets. So instead of one flat setting, school
+   days are stored as a list of versioned configs, each with an effectiveFrom date:
+
+     { id, effectiveFrom: "2026-09-17", schoolDays: [3,5], createdAt }
+
+   The config that governs any given date is whichever version has the LATEST
+   effectiveFrom that is still <= that date. This means:
+     - Changing School Days today only ever appends (or, if you already changed it
+       earlier today, updates) a version effective from today onward.
+     - Every date before today keeps resolving to whatever version was in force then,
+       so past weekly/monthly totals, Credits, and Debt derived from them never shift
+       under you.
+     - Weekly/monthly projections for TODAY and the FUTURE naturally pick up the new
+       configuration, since isSchoolDay()/expectedForDays() always resolve per-date.
+   Individual budget records (state.budgets) also separately remember which config
+   governed them at creation time (schoolDayConfigId) purely for reference — the
+   source of truth for "was this a school day" for any date is always this history,
+   not that stamped id.
+*/
+function migrateSchoolDayConfigs(){
+  if(!state.schoolDayConfigs || !state.schoolDayConfigs.length){
+    // Pre-existing installs only ever had one flat setting — preserve it as a single
+    // baseline version covering all of their history (and the present), so migrating
+    // to versioned configs never changes anything that already happened.
+    state.schoolDayConfigs = [{
+      id: uid(),
+      effectiveFrom: '2000-01-01',
+      schoolDays: [...(state.settings.schoolDays||[1,2,3,4,5])],
+      createdAt: Date.now()
+    }];
+  }
+}
+/* The config that governs a given date = the one with the latest effectiveFrom that
+   is still on or before that date. */
+function schoolDaysConfigForDate(dateStr){
+  let best = null;
+  state.schoolDayConfigs.forEach(c=>{
+    if(c.effectiveFrom<=dateStr && (!best || c.effectiveFrom>best.effectiveFrom)) best = c;
+  });
+  return best || state.schoolDayConfigs[0];
+}
+function schoolDaysForDate(dateStr){
+  return schoolDaysConfigForDate(dateStr).schoolDays;
+}
+/* The version in effect "as of right now" — used to prefill the Settings UI and to
+   decide whether a fresh edit should create a new version or adjust today's. */
+function currentSchoolDaysConfig(){
+  return schoolDaysConfigForDate(todayStr());
+}
+/* Applying a School Days change NEVER mutates a version that has already started
+   governing past dates. If the user already changed it earlier today, we update that
+   same today-dated version in place (so repeated edits in one sitting don't pile up
+   duplicate versions); otherwise we append a brand-new version effective from today,
+   leaving every earlier version — and therefore every date before today, including
+   any budget already established for today — exactly as it was. */
+function applySchoolDaysChange(newDays){
+  const t = todayStr();
+  const latest = currentSchoolDaysConfig();
+  if(latest.effectiveFrom===t){
+    latest.schoolDays = [...newDays];
+  } else {
+    state.schoolDayConfigs.push({id:uid(), effectiveFrom:t, schoolDays:[...newDays], createdAt:Date.now()});
+  }
+  state.settings.schoolDays = [...newDays]; // mirrored for any legacy reads
 }
 /* ============================= MONEY NODE HIERARCHY =============================
    Every actual-money location in the app ("node") is identified by a single string
@@ -1429,7 +1498,8 @@ function nonBudgetedSpentForDates(dates){
 function getOrCreateBudget(date, amount, schoolDay){
   let b = state.budgets.find(x=>x.date===date);
   if(b){ b.amount=round2(amount); b.isSchoolDay=schoolDay; return b; }
-  b = {id:uid(), date, amount:round2(amount), isSchoolDay:schoolDay, closed:false, createdAt:Date.now()};
+  const cfg = schoolDaysConfigForDate(date);
+  b = {id:uid(), date, amount:round2(amount), isSchoolDay:schoolDay, schoolDayConfigId:cfg.id, closed:false, createdAt:Date.now()};
   state.budgets.push(b);
   state.budgets.sort((a,c)=>a.date<c.date?1:-1);
   return b;
@@ -2119,8 +2189,11 @@ function weekRangeData(dateStr){
 }
 /* Expected budget for a set of days = the actually-configured budget amount for each
    configured school day, falling back to the current default only for school days that
-   don't have a budget entry yet. This makes weekly/monthly expected totals track the
-   live/active budget configuration instead of a hard-coded "5 school days" assumption. */
+   don't have a budget entry yet. isSchoolDay(d) already resolves per-date against the
+   historical School Days configuration (see the config-history block above), so this
+   naturally uses whichever configuration governed each individual date — a week or
+   month that spans a School Days change correctly blends both configurations instead
+   of applying the newest one across the board. */
 function expectedForDays(days){
   return round2(days.reduce((sum,d)=>{
     if(!isSchoolDay(d)) return sum;
@@ -2555,15 +2628,30 @@ function settingsPrivacyPage(){
   `;
 }
 function settingsSchoolDaysPage(){
+  const cfg = currentSchoolDaysConfig();
+  const t = todayStr();
+  const historyConfigs = [...state.schoolDayConfigs].sort((a,b)=> a.effectiveFrom<b.effectiveFrom?1:-1);
   return `
   ${settingsSubHeader('School Days')}
   <div class="card" style="margin-bottom:16px">
     <h3 style="margin-top:0">School days</h3>
-    <p style="color:var(--ink-soft);font-size:13px;margin-top:-6px">Used to calculate your expected weekly and monthly budget.</p>
+    <p style="color:var(--ink-soft);font-size:13px;margin-top:-6px">Used to calculate your expected weekly and monthly budget. Changes apply from today onward — past budgets, and past weekly/monthly totals, keep using whatever configuration was actually in effect at the time.</p>
     <div class="checkgrid" id="schooldays-grid">
-      ${WEEKDAYS.map((d,i)=>`<div class="checkday ${state.settings.schoolDays.includes(i)?'on':''}" data-day="${i}">${d}</div>`).join('')}
+      ${WEEKDAYS.map((d,i)=>`<div class="checkday ${cfg.schoolDays.includes(i)?'on':''}" data-day="${i}">${d}</div>`).join('')}
     </div>
+    <div class="helptext" style="margin-top:8px">${cfg.effectiveFrom===t ? `In effect since today (${niceDate(cfg.effectiveFrom)}).` : `In effect since ${niceDate(cfg.effectiveFrom)}.`}</div>
   </div>
+
+  ${historyConfigs.length>1 ? `
+  <div class="card" style="margin-bottom:16px">
+    <h3 style="margin-top:0">School Days history</h3>
+    <div class="receipt">
+      ${historyConfigs.map(c=>`
+        <div class="rline" style="cursor:default">
+          <div class="rl-left"><div class="rl-txt"><div class="rl-title">${c.schoolDays.length? c.schoolDays.slice().sort().map(i=>WEEKDAYS[i]).join(', ') : 'No school days'}</div><div class="rl-sub">Effective from ${niceDate(c.effectiveFrom)}</div></div></div>
+        </div>`).join('')}
+    </div>
+  </div>` : ''}
 
   <div class="card" style="margin-bottom:16px">
     <h3 style="margin-top:0">Default school-day budget</h3>
@@ -3644,7 +3732,7 @@ function wirePageEvents(tab){
       document.getElementById('settings-save').onclick = ()=>{
         const days = [...document.querySelectorAll('#schooldays-grid .on')].map(el=>parseInt(el.dataset.day));
         const amt = parseFloat(document.getElementById('set-defaultbudget').value)||0;
-        state.settings.schoolDays = days;
+        applySchoolDaysChange(days);
         state.settings.defaultBudget = amt;
         scheduleSave(); showToast('Settings saved'); render();
       };
