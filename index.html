@@ -1418,6 +1418,19 @@ function computeAccountBalance(key){
 function computeFundsBalance(){ return round2(fundsNodes().reduce((s,n)=>s+computeAccountBalance(n),0)); }
 function computeScholarBalance(){ return round2(scholarNodes().reduce((s,n)=>s+computeAccountBalance(n),0)); }
 
+/* Balance of a money node (or 'extra' for Credits) as if a given expense didn't exist.
+   Used when adding/editing an expense so we compare against what's REALLY available:
+   when editing, the old version of the expense has already been deducted, so it must
+   be "given back" before checking whether the new amount fits. Pass null for a new
+   expense (nothing to exclude). */
+function balanceExcludingExpense(key, excludeId){
+  const saved = state.expenses;
+  state.expenses = saved.filter(e=>e.id!==excludeId);
+  const bal = computeAccountBalance(key);
+  state.expenses = saved;
+  return bal;
+}
+
 /* Credits is a tracked SURPLUS/VARIANCE, never actual money — it is never added
    to Total Money (see totalMoney()). It is derived live, never incrementally stored:
      + Budget Excess entries (state.extraTx, created by syncDebtsAndExtras when a
@@ -1481,7 +1494,7 @@ function doTransfer(amount, from, to, date){
   if(from===to) return {ok:false, msg:'Choose two different accounts.'};
   if(!amount || amount<=0) return {ok:false, msg:'Enter a valid amount.'};
   const bal = computeAccountBalance(from);
-  if(amount > bal+0.001) return {ok:false, msg:`Insufficient ${nodeLabel(from)} balance.`};
+  if(amount > bal+0.001) return {ok:false, msg:`Insufficient balance.`};
   const txDate = date || todayStr();
   state.transfers.unshift({id:uid(), amount, from, to, date:txDate, createdAt:Date.now(), status:'completed'});
   addHistory('transfer', `${nodeLabel(from)} → ${nodeLabel(to)}`, amount, {from, to}, txDate);
@@ -1754,7 +1767,7 @@ function payNormalDebt(debtId, amount, source){
   if(!amount || amount<=0) return {ok:false, msg:'Enter a valid amount.'};
   if(amount > d.remaining+0.001) return {ok:false, msg:`That's more than the outstanding amount (${fmt(d.remaining)}).`};
   const bal = computeAccountBalance(source);
-  if(amount > bal+0.001) return {ok:false, msg:`Insufficient ${nodeLabel(source)} balance.`};
+  if(amount > bal+0.001) return {ok:false, msg:`Insufficient balance.`};
   d.remaining = round2(d.remaining-amount);
   if(d.remaining<=0.001){ d.remaining=0; d.status='paid'; }
   state.debtPayments.unshift({id:uid(), debtId:d.id, amount, source, date:todayStr(), debtType:'borrowed'});
@@ -3433,7 +3446,7 @@ function modalExpense(existingId, prefillDate){
     ` : ''}
     ${expenseType===SURPLUS ? `<div class="helptext" style="margin-bottom:10px">Available Credits: <strong class="mono">${fmt(computeAccountBalance('extra'))}</strong></div>` : ''}
 
-    ${isWantsDebt ? '' : `<div class="field"><label>Deduct From</label>${moneyNodePickerHTML(src, 'exp-source')}</div>`}
+    ${isWantsDebt ? '' : `<div class="field"><label>Deduct From</label>${moneyNodePickerHTML(src, 'exp-source')}<div class="helptext" id="exp-balance-warn" style="color:var(--debt);font-weight:600;display:none"></div></div>`}
 
     <div class="field"><label>Notes (optional)</label><textarea id="exp-notes" placeholder="Anything to remember about this">${isEdit? (existing.notes||''):''}</textarea></div>
     <div class="field"><label>Photo (optional)</label>
@@ -3451,7 +3464,31 @@ function modalExpense(existingId, prefillDate){
   let photoData = isEdit? (existing.photo||null) : null;
   openModal(bodyHTML());
 
+  /* Live warning shown under "Deduct From" while typing, so the person sees right away
+     that the amount is more than what the selected money source (or Credits, for a
+     Surplus expense) actually has. The real block happens in onSave() below — this is
+     just early feedback. */
+  const updateWarn = ()=>{
+    const el = document.getElementById('exp-balance-warn');
+    const amtEl = document.getElementById('exp-amount');
+    if(!amtEl || !el) return;
+    const amt = parseFloat(amtEl.value) || 0;
+    let msg = '';
+    if(src && amt>0){
+      const avail = balanceExcludingExpense(src, isEdit ? existing.id : null);
+      if(amt > avail+0.001) msg = `Not enough in ${nodeLabel(src)} — ${fmt(Math.max(0,avail))} available`;
+    }
+    if(!msg && expenseType===SURPLUS && amt>0){
+      const cr = balanceExcludingExpense('extra', isEdit ? existing.id : null);
+      if(amt > cr+0.001) msg = `Not enough Credits — ${fmt(Math.max(0,cr))} available`;
+    }
+    el.textContent = msg;
+    el.style.display = msg ? 'block' : 'none';
+  };
+
   const wire = ()=>{
+    document.getElementById('exp-amount').oninput = updateWarn;
+    updateWarn();
     const srcGroupContainer = document.getElementById('exp-source-group');
     if(srcGroupContainer){
       wireMoneyNodePicker('exp-source',
@@ -3533,15 +3570,20 @@ function modalExpense(existingId, prefillDate){
     if(!isWantsDebt){
       finalSource = src;
       if(!finalSource){ showToast('Choose a money source (add an E-Bank if needed)'); return; }
-      const projectedBalance = computeAccountBalance(finalSource) - (isEdit && existing.source===finalSource ? existing.amount : 0) - amount;
-      if(projectedBalance < -0.001){
-        if(!confirm(`This will bring ${nodeLabel(finalSource)} below zero. Continue anyway?`)) return;
+      // HARD BLOCK: you can't spend more than the selected money source actually has.
+      // When editing, the expense's own previous amount is excluded first (it was already
+      // deducted), so the check compares against what's really available.
+      const available = balanceExcludingExpense(finalSource, isEdit ? existing.id : null);
+      if(amount > available + 0.001){
+        showToast(`Insufficient balance`);
+        return;
       }
     }
     if(finalType===SURPLUS){
-      const availableExtra = computeAccountBalance('extra') + (isEdit && existing.expenseType===SURPLUS ? existing.amount : 0);
-      if(amount > availableExtra+0.001){
-        if(!confirm(`This uses more Credits than currently available (${fmt(availableExtra)}). Continue anyway?`)) return;
+      const availableExtra = balanceExcludingExpense('extra', isEdit ? existing.id : null);
+      if(amount > availableExtra + 0.001){
+        showToast(`Not enough Credits (${fmt(Math.max(0,availableExtra))} available)`);
+        return;
       }
     }
 
