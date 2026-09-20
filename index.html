@@ -2109,7 +2109,6 @@ let moneySubtab = 'total';
 function moneyPage(){
   return `
   <div class="money-header">
-    <div class="sub" style="margin-bottom:16px">Your wallet — where every peso is and how it moves.</div>
     <div class="subtabs">
       ${['total','funds','scholar','transfers'].map(k=>`<button class="subtab ${moneySubtab===k?'active':''}" data-sub="${k}">${k==='total'?'Total':k==='funds'?'Funds':k==='scholar'?'Scholar Allowance':'Transfer History'}</button>`).join('')}
     </div>
@@ -2430,7 +2429,7 @@ function variancePage(){
   const debtTypeLabel = (t)=> t==='overrun'?'Overrun':t==='personal'?'Personal':'Normal';
   const extraHistory = extraMoneyHistoryList();
   return `
-  <div class="pagehead"><h1>Variance</h1><div class="sub">Track your credits and outstanding debts separately from Total Money.</div></div>
+  <div class="pagehead"><h1>Variance</h1><div class="sub">Track your credits and outstanding debts.</div></div>
 
   <div class="variance-grid">
     <div class="variance-col variance-col-credits">
@@ -2744,7 +2743,6 @@ function settingsSchoolDaysPage(){
     <div class="field" style="margin-bottom:0">
       <label>Default expense source</label>
       <div id="set-src-picker">${moneyNodePickerHTML(state.settings.defaultSource, 'set-src')}</div>
-      <div class="helptext">Pre-selected as the "Deduct From" option when you add a new expense.</div>
     </div>
   </div>
   <button class="btn btn-primary" id="settings-save">Save settings</button>
