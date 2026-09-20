@@ -83,7 +83,7 @@ input,select,textarea{font-family:inherit;}
   gap:4px;
   position:sticky;
   top:0;
-  height:80vh;
+  height:100vh;
 }
 .brand{
   font-family:'Space Grotesk',sans-serif;
@@ -167,7 +167,7 @@ main{flex:1;min-width:0;padding:28px 30px 100px 30px;max-width:920px;}
   content:'';position:absolute;right:-40px;top:-40px;width:160px;height:160px;border-radius:50%;
   background:radial-gradient(circle,rgba(232,163,61,.35),transparent 70%);
 }
-.hero .eyebrow{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#c7cec4;font-weight:600;}
+.hero .eyebrow{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#c7cec4;font-weight:600;display:flex;align-items:center;gap:4px;}
 .hero .amount{font-family:'Space Grotesk',sans-serif;font-size:42px;font-weight:700;margin:6px 0 2px 0;letter-spacing:-.01em;white-space:nowrap;}
 .hero .caption{color:#a9b3a5;font-size:13px;}
 
@@ -460,12 +460,17 @@ table tr:last-child td{border-bottom:none;}
 .tag-under{color:var(--allowance);font-weight:600;}
 .tag-over{color:var(--debt);font-weight:600;}
 
-.checkgrid{display:flex;gap:8px;flex-wrap:wrap;}
+.checkgrid{display:flex;gap:8px;flex-wrap:nowrap;width:100%;}
 .checkday{
-  border:1px solid var(--card-line);border-radius:10px;padding:8px 6px;text-align:center;font-size:12px;font-weight:700;
-  background:var(--paper);color:var(--ink-soft);min-width:44px;
+  flex:1 1 0;min-width:0;
+  border:1px solid var(--card-line);border-radius:10px;padding:8px 4px;text-align:center;font-size:12px;font-weight:700;
+  background:var(--paper);color:var(--ink-soft);overflow:hidden;white-space:nowrap;
 }
 .checkday.on{background:var(--allowance);color:#fff;border-color:var(--allowance);}
+@media (max-width:520px){
+  .checkgrid{gap:4px;}
+  .checkday{padding:8px 2px;font-size:10px;border-radius:8px;}
+}
 
 .toast{
   position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
@@ -474,9 +479,16 @@ table tr:last-child td{border-bottom:none;}
 }
 .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px);}
 
-.subtabs{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap;}
+.money-header{display:flex;flex-direction:column;}
+@media (max-width:760px){
+  .money-header .subtabs{order:1;}
+  .money-header .moneytransfer-card{order:2;}
+}
+.subtabs{display:flex;gap:6px;margin-bottom:18px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.subtabs::-webkit-scrollbar{display:none;}
 .subtab{
   border:1px solid var(--card-line);background:var(--paper-alt);border-radius:10px;padding:8px 14px;font-size:12.8px;font-weight:700;color:var(--ink-soft);
+  flex:0 0 auto;white-space:nowrap;
 }
 .subtab.active{background:var(--ink);color:#fff;border-color:var(--ink);}
 
@@ -1272,6 +1284,15 @@ function currentSchoolDaysConfig(){
    duplicate versions); otherwise we append a brand-new version effective from today,
    leaving every earlier version — and therefore every date before today, including
    any budget already established for today — exactly as it was. */
+/* A past School Days history entry can be corrected directly (not by appending a new
+   version) for a short 7-day grace window after it was set — separate from the
+   general 1-month editability window used for expenses/budgets/etc. elsewhere. After
+   7 days it's locked, so a config that has already been governing real budgets for a
+   while can't quietly change out from under them. */
+function canEditSchoolDayConfig(createdAt){
+  if(!createdAt) return true;
+  return Date.now() < createdAt + 7*24*60*60*1000;
+}
 function applySchoolDaysChange(newDays){
   const t = todayStr();
   const latest = currentSchoolDaysConfig();
@@ -2087,16 +2108,18 @@ function historyListHTML(items){
 let moneySubtab = 'total';
 function moneyPage(){
   return `
-  <div class="sub" style="margin-bottom:16px">Your wallet — where every peso is and how it moves.</div>
-  <div class="moneytransfer-card" id="money-transfer">
-    <div class="moneytransfer-ic">⇄</div>
-    <div>
-      <div class="moneytransfer-title">Transfer Money</div>
-      <div class="moneytransfer-sub">Move money between Funds and Scholar Allowance nodes</div>
+  <div class="money-header">
+    <div class="sub" style="margin-bottom:16px">Your wallet — where every peso is and how it moves.</div>
+    <div class="subtabs">
+      ${['total','funds','scholar','transfers'].map(k=>`<button class="subtab ${moneySubtab===k?'active':''}" data-sub="${k}">${k==='total'?'Total':k==='funds'?'Funds':k==='scholar'?'Scholar Allowance':'Transfer History'}</button>`).join('')}
     </div>
-  </div>
-  <div class="subtabs">
-    ${['total','funds','scholar','transfers'].map(k=>`<button class="subtab ${moneySubtab===k?'active':''}" data-sub="${k}">${k==='total'?'Total':k==='funds'?'Funds':k==='scholar'?'Scholar Allowance':'Transfers'}</button>`).join('')}
+    <div class="moneytransfer-card" id="money-transfer">
+      <div class="moneytransfer-ic">⇄</div>
+      <div>
+        <div class="moneytransfer-title">Transfer Money</div>
+        <div class="moneytransfer-sub">Move money between Funds and Scholar Allowance nodes</div>
+      </div>
+    </div>
   </div>
   <div id="money-body">${moneySubtabHTML(moneySubtab)}</div>
   `;
@@ -2592,6 +2615,8 @@ function settingsMenuPage(){
 }
 function settingsPersonalPage(){
   const p = appMeta.profile;
+  const phones = (p && p.phones) || [];
+  const emails = (p && p.emails) || [];
   return `
   ${settingsSubHeader('Personal Details')}
   <div class="card" style="margin-bottom:16px">
@@ -2599,11 +2624,76 @@ function settingsPersonalPage(){
       <div>
         <h3 style="margin-top:0;margin-bottom:4px">${p? p.name : 'Your profile'}</h3>
         ${p? `<div style="color:var(--ink-soft);font-size:13px">${p.userType||''}</div>` : `<div style="color:var(--ink-soft);font-size:13px">Not set up yet.</div>`}
+        <div style="color:var(--ink-soft);font-size:13px;margin-top:6px">Birthdate: ${p&&p.birthdate? niceDateFull(p.birthdate) : 'Not set'}</div>
       </div>
       <button class="btn btn-ghost btn-sm" id="settings-editprofile">${p? 'Edit':'Set up'}</button>
     </div>
   </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <h3 style="margin-top:0;margin-bottom:${phones.length?12:10}px">Phone numbers</h3>
+    ${phones.length? `<div class="receipt" style="margin-bottom:10px">${phones.map((num,i)=>`
+      <div class="rline" style="cursor:default">
+        <div class="rl-left"><div class="rl-txt"><div class="rl-title">${num}</div></div></div>
+        <button class="deletebtn" data-remove-phone="${i}">Delete</button>
+      </div>`).join('')}</div>` : `<div class="helptext" style="margin-bottom:10px">No phone numbers added yet.</div>`}
+    <button type="button" class="btn btn-ghost btn-sm" id="settings-add-phone">＋ Add number</button>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <h3 style="margin-top:0;margin-bottom:${emails.length?12:10}px">Email accounts</h3>
+    ${emails.length? `<div class="receipt" style="margin-bottom:10px">${emails.map((em,i)=>`
+      <div class="rline" style="cursor:default">
+        <div class="rl-left"><div class="rl-txt"><div class="rl-title">${em}</div></div></div>
+        <button class="deletebtn" data-remove-email="${i}">Delete</button>
+      </div>`).join('')}</div>` : `<div class="helptext" style="margin-bottom:10px">No email accounts added yet.</div>`}
+    <button type="button" class="btn btn-ghost btn-sm" id="settings-add-email">＋ Add email</button>
+  </div>
   `;
+}
+/* Inline add for a phone number or email — same swap-the-button-for-a-real-input
+   pattern as wireInlineAddBank, for the same reason: window.prompt() is unreliable
+   in sandboxed/embedded browser contexts. Adds directly to appMeta.profile (not the
+   financial state), since contact info is part of the person's profile metadata. */
+function wireInlineAddContact(addBtn, kind){
+  addBtn.onclick = ()=>{
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:6px;width:100%;flex-wrap:wrap';
+    const inputType = kind==='email' ? 'email' : 'tel';
+    const placeholder = kind==='email' ? 'name@example.com' : '09XX XXX XXXX';
+    wrap.innerHTML = `
+      <input type="${inputType}" placeholder="${placeholder}" style="flex:1;min-width:140px;border:1px solid var(--card-line);border-radius:10px;padding:7px 10px;font-size:13px;background:var(--paper);color:var(--ink)">
+      <button type="button" class="btn btn-primary btn-sm">Add</button>
+      <button type="button" class="btn btn-ghost btn-sm">Cancel</button>
+    `;
+    addBtn.replaceWith(wrap);
+    const input = wrap.querySelector('input');
+    const [saveBtn, cancelBtn] = wrap.querySelectorAll('button');
+    input.focus();
+    const doSave = ()=>{
+      const val = input.value.trim();
+      if(!val){ input.focus(); return; }
+      if(!appMeta.profile) appMeta.profile = {};
+      const key = kind==='email' ? 'emails' : 'phones';
+      if(!appMeta.profile[key]) appMeta.profile[key] = [];
+      if(appMeta.profile[key].some(x=>x.toLowerCase()===val.toLowerCase())){
+        showToast(`That ${kind==='email'?'email':'number'} is already added`); input.focus(); return;
+      }
+      appMeta.profile[key].push(val);
+      scheduleSaveMeta();
+      render();
+    };
+    saveBtn.onclick = doSave;
+    input.onkeydown = (e)=>{ if(e.key==='Enter'){ e.preventDefault(); doSave(); } else if(e.key==='Escape'){ render(); } };
+    cancelBtn.onclick = ()=>render();
+  };
+}
+function removeContactEntry(kind, index){
+  if(!appMeta.profile) return;
+  const key = kind==='email' ? 'emails' : 'phones';
+  if(!appMeta.profile[key] || !appMeta.profile[key].length) return;
+  appMeta.profile[key].splice(index,1);
+  scheduleSaveMeta(); render(); showToast(`${kind==='email'?'Email':'Number'} removed`);
 }
 function settingsPrivacyPage(){
   return `
@@ -2617,41 +2707,33 @@ function settingsPrivacyPage(){
       <button class="btn btn-ghost btn-sm" id="settings-changepin">Change PIN</button>
     </div>
   </div>
-  <div class="helptext">Balance visibility is controlled per-amount with the eye icon next to each number — there's no separate privacy toggle here.</div>
+
+  <div class="receipt" style="margin-bottom:16px">
+    <div class="rline" id="settings-account-recovery">
+      <div class="rl-left"><div class="rl-txt"><div class="rl-title">Account Recovery</div></div></div>
+      <div class="ramt mono" style="color:var(--ink-faint);font-weight:400">›</div>
+    </div>
+  </div>
 
   <div class="sectiontitle">Danger zone</div>
-  <div class="card" style="border-color:var(--debt)">
-    <h3 style="margin:0 0 4px 0;color:var(--debt)">Reset App Data</h3>
-    <div style="color:var(--ink-soft);font-size:13px;margin-bottom:12px">Permanently erases every Fund, Scholar Allowance, E-Bank, budget, expense, transfer, Credit, and Debt record, plus your PIN and profile. The app returns to first-time setup. This cannot be undone.</div>
-    <button class="btn btn-danger btn-sm" id="settings-reset-app">Reset App Data</button>
-  </div>
+  <button class="btn btn-danger" id="settings-reset-app" style="width:100%;justify-content:center">Reset App Data</button>
   `;
 }
 function settingsSchoolDaysPage(){
   const cfg = currentSchoolDaysConfig();
   const t = todayStr();
-  const historyConfigs = [...state.schoolDayConfigs].sort((a,b)=> a.effectiveFrom<b.effectiveFrom?1:-1);
   return `
   ${settingsSubHeader('School Days')}
   <div class="card" style="margin-bottom:16px">
     <h3 style="margin-top:0">School days</h3>
-    <p style="color:var(--ink-soft);font-size:13px;margin-top:-6px">Used to calculate your expected weekly and monthly budget. Changes apply from today onward — past budgets, and past weekly/monthly totals, keep using whatever configuration was actually in effect at the time.</p>
     <div class="checkgrid" id="schooldays-grid">
       ${WEEKDAYS.map((d,i)=>`<div class="checkday ${cfg.schoolDays.includes(i)?'on':''}" data-day="${i}">${d}</div>`).join('')}
     </div>
-    <div class="helptext" style="margin-top:8px">${cfg.effectiveFrom===t ? `In effect since today (${niceDate(cfg.effectiveFrom)}).` : `In effect since ${niceDate(cfg.effectiveFrom)}.`}</div>
-  </div>
-
-  ${historyConfigs.length>1 ? `
-  <div class="card" style="margin-bottom:16px">
-    <h3 style="margin-top:0">School Days history</h3>
-    <div class="receipt">
-      ${historyConfigs.map(c=>`
-        <div class="rline" style="cursor:default">
-          <div class="rl-left"><div class="rl-txt"><div class="rl-title">${c.schoolDays.length? c.schoolDays.slice().sort().map(i=>WEEKDAYS[i]).join(', ') : 'No school days'}</div><div class="rl-sub">Effective from ${niceDate(c.effectiveFrom)}</div></div></div>
-        </div>`).join('')}
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:10px;flex-wrap:wrap">
+      <div class="helptext" style="margin-top:0">${cfg.effectiveFrom===t ? `In effect since today (${niceDate(cfg.effectiveFrom)}).` : `In effect since ${niceDate(cfg.effectiveFrom)}.`}</div>
+      <button type="button" class="gate-link" id="schooldays-show-history" style="margin-top:0;font-size:12px;white-space:nowrap">Show history ›</button>
     </div>
-  </div>` : ''}
+  </div>
 
   <div class="card" style="margin-bottom:16px">
     <h3 style="margin-top:0">Default school-day budget</h3>
@@ -2829,61 +2911,164 @@ function wireMoneyNodeOnly(idPrefix, group, onNodeChange, onTypeChange){
    already authenticated (no separate re-verification needed to edit your own
    recovery details while logged in). */
 function modalEditProfile(){
-  const p = state && appMeta.profile ? appMeta.profile : {name:'', userType:'Student', securityQuestion:SECURITY_QUESTIONS[0], securityAnswer:''};
-  const isCustom = p.securityQuestion && !SECURITY_QUESTIONS.slice(0,4).includes(p.securityQuestion);
+  const p = state && appMeta.profile ? appMeta.profile : {name:'', userType:'Student', birthdate:''};
   openModal(`
     <button class="closex" id="m-close">✕</button>
     <h3>Edit Profile</h3>
     <div class="field"><label>Name</label><input type="text" id="ep-name" value="${(p.name||'').replace(/"/g,'&quot;')}"></div>
+    <div class="field"><label>Birthdate</label><input type="date" id="ep-birthdate" value="${p.birthdate||''}"></div>
     <div class="field"><label>User Type</label>
       <select id="ep-usertype">${['Student','Guardian/Parent','Other'].map(o=>`<option ${p.userType===o?'selected':''}>${o}</option>`).join('')}</select>
     </div>
-    <div class="field"><label>Security Question</label>
-      <select id="ep-question">${SECURITY_QUESTIONS.map(q=>`<option ${(isCustom&&q==='Custom question…')||p.securityQuestion===q?'selected':''}>${q}</option>`).join('')}</select>
-    </div>
-    <div class="field" id="ep-customq-wrap" style="display:${isCustom?'block':'none'}">
-      <label>Your custom question</label>
-      <input type="text" id="ep-customq" value="${isCustom?(p.securityQuestion||'').replace(/"/g,'&quot;'):''}">
-    </div>
-    <div class="field"><label>Answer</label><input type="text" id="ep-answer" value="${(p.securityAnswer||'').replace(/"/g,'&quot;')}"></div>
-    <div class="helptext">Your name and security answer are used to recover your PIN — keep the answer memorable but not easily guessed by others.</div>
     <div class="modalfoot">
       <button class="btn btn-ghost" id="m-cancel">Cancel</button>
       <button class="btn btn-primary" id="ep-save">Save</button>
     </div>
   `);
-  document.getElementById('ep-question').onchange = (e)=>{
-    document.getElementById('ep-customq-wrap').style.display = e.target.value==='Custom question…' ? 'block':'none';
-  };
   document.getElementById('m-close').onclick = closeModal;
   document.getElementById('m-cancel').onclick = closeModal;
   document.getElementById('ep-save').onclick = ()=>{
     const name = document.getElementById('ep-name').value.trim();
     const userType = document.getElementById('ep-usertype').value;
-    let question = document.getElementById('ep-question').value;
-    if(question==='Custom question…'){
-      question = document.getElementById('ep-customq').value.trim() || 'Custom question';
-    }
-    const answer = document.getElementById('ep-answer').value.trim();
     if(!name){ showToast('Please enter your name'); return; }
-    if(!answer || answer.length<2){ showToast('Please set a security answer'); return; }
-    appMeta.profile = {...(appMeta.profile||{}), name, userType, securityQuestion:question, securityAnswer:answer};
+    appMeta.profile = {...(appMeta.profile||{}), name, userType, birthdate: document.getElementById('ep-birthdate').value || null};
     scheduleSaveMeta(); closeModal(); render(); showToast('Profile updated');
   };
+}
+
+/* Security question/answer editing — moved to Settings > Privacy & Security, since
+   it's a recovery/security mechanism rather than a personal-details field. Editable
+   here without re-verification (the user is already authenticated/unlocked). */
+function modalEditSecurityQuestion(){
+  const p = appMeta.profile || {};
+  const isCustom = p.securityQuestion && !SECURITY_QUESTIONS.slice(0,4).includes(p.securityQuestion);
+  openModal(`
+    <button class="closex" id="m-close">✕</button>
+    <h3>Account Recovery</h3>
+    <p style="color:var(--ink-soft);font-size:13px;margin-top:-8px">Used, along with your name, to recover your PIN if you forget it.</p>
+    <div class="field"><label>Security Question</label>
+      <select id="esq-question">${SECURITY_QUESTIONS.map(q=>`<option ${(isCustom&&q==='Custom question…')||p.securityQuestion===q?'selected':''}>${q}</option>`).join('')}</select>
+    </div>
+    <div class="field" id="esq-customq-wrap" style="display:${isCustom?'block':'none'}">
+      <label>Your custom question</label>
+      <input type="text" id="esq-customq" value="${isCustom?(p.securityQuestion||'').replace(/"/g,'&quot;'):''}">
+    </div>
+    <div class="field"><label>Answer</label><input type="text" id="esq-answer" value="${(p.securityAnswer||'').replace(/"/g,'&quot;')}" placeholder="Only you should know this"></div>
+    <div class="helptext">Keep the answer memorable but not easily guessed by others.</div>
+    <div class="modalfoot">
+      <button class="btn btn-ghost" id="m-cancel">Cancel</button>
+      <button class="btn btn-primary" id="esq-save">Save</button>
+    </div>
+  `);
+  document.getElementById('esq-question').onchange = (e)=>{
+    document.getElementById('esq-customq-wrap').style.display = e.target.value==='Custom question…' ? 'block':'none';
+  };
+  document.getElementById('m-close').onclick = closeModal;
+  document.getElementById('m-cancel').onclick = closeModal;
+  document.getElementById('esq-save').onclick = ()=>{
+    let question = document.getElementById('esq-question').value;
+    if(question==='Custom question…'){
+      question = document.getElementById('esq-customq').value.trim() || 'Custom question';
+    }
+    const answer = document.getElementById('esq-answer').value.trim();
+    if(!answer || answer.length<2){ showToast('Please set a security answer'); return; }
+    appMeta.profile = {...(appMeta.profile||{}), securityQuestion:question, securityAnswer:answer};
+    scheduleSaveMeta(); closeModal(); render(); showToast('Security question updated');
+  };
+}
+
+/* Generic "verify PIN, then proceed" gate — used wherever a sensitive settings
+   screen (like Account Recovery) shouldn't be reachable without re-entering the PIN,
+   even though the app itself is already unlocked for this session. onVerified()
+   fires only after a correct PIN; the modal stays open and shows an error on a wrong
+   attempt, same UX as every other PIN entry in the app. */
+function mountVerifyPin(container, {title, sub, onVerified}){
+  let buffer='', errorMsg='';
+  function draw(){
+    container.innerHTML = `
+      <div class="gatecard" style="box-shadow:none;border:none;padding:4px 0;">
+        <h1 class="gate-title" style="font-size:19px">${title}</h1>
+        <p class="gate-sub">${sub}</p>
+        ${pinDotsHTML(buffer)}
+        <div class="pin-error">${errorMsg}</div>
+        ${keypadHTML()}
+      </div>`;
+    container.querySelectorAll('.keypadbtn').forEach(b=>{
+      b.onclick = ()=>{
+        const k = b.dataset.key;
+        if(k==='back'){ buffer = buffer.slice(0,-1); errorMsg=''; draw(); return; }
+        if(buffer.length>=4) return;
+        errorMsg=''; buffer += k; draw();
+        if(buffer.length===4){
+          setTimeout(async ()=>{
+            const ok = await verifyPin(buffer);
+            if(ok){ onVerified(); }
+            else { errorMsg='Incorrect PIN. Please try again.'; buffer=''; draw(); }
+          }, 120);
+        }
+      };
+    });
+  }
+  draw();
+}
+function modalVerifyPinThen(onVerified, title, sub){
+  openModal(`<button class="closex" id="m-close">✕</button><div id="pinflow-verify-container"></div>`);
+  document.getElementById('m-close').onclick = closeModal;
+  mountVerifyPin(document.getElementById('pinflow-verify-container'), {
+    title: title || 'Enter PIN',
+    sub: sub || 'Confirm your PIN to continue.',
+    onVerified
+  });
 }
 
 function modalChangePin(){
   openModal(`<button class="closex" id="m-close">✕</button><div id="pinflow-container"></div>`);
   document.getElementById('m-close').onclick = closeModal;
-  mountPinFlow(document.getElementById('pinflow-container'), {
-    title:'Change PIN',
-    sub:'Enter a new 4-digit PIN.',
-    onSuccess: async (pin)=>{
-      await setPin(pin);
-      closeModal();
-      showToast('PIN updated');
-    }
-  });
+  mountOldPinThenNewPin(document.getElementById('pinflow-container'));
+}
+/* Changing the PIN always verifies the CURRENT PIN first — someone with the app
+   already unlocked shouldn't be able to silently swap in a new PIN without knowing
+   the old one. Only once that verifies does it hand off to the normal two-step
+   (enter, confirm) capture for the new PIN via mountPinFlow(). */
+function mountOldPinThenNewPin(container){
+  let buffer='', errorMsg='';
+  function draw(){
+    container.innerHTML = `
+      <div class="gatecard" style="box-shadow:none;border:none;padding:4px 0;">
+        <h1 class="gate-title" style="font-size:19px">Enter Current PIN</h1>
+        <p class="gate-sub">Confirm your current PIN before setting a new one.</p>
+        ${pinDotsHTML(buffer)}
+        <div class="pin-error">${errorMsg}</div>
+        ${keypadHTML()}
+      </div>`;
+    container.querySelectorAll('.keypadbtn').forEach(b=>{
+      b.onclick = ()=>{
+        const k = b.dataset.key;
+        if(k==='back'){ buffer = buffer.slice(0,-1); errorMsg=''; draw(); return; }
+        if(buffer.length>=4) return;
+        errorMsg=''; buffer += k; draw();
+        if(buffer.length===4){
+          setTimeout(async ()=>{
+            const ok = await verifyPin(buffer);
+            if(ok){
+              mountPinFlow(container, {
+                title:'Create New PIN',
+                sub:'Enter a new 4-digit PIN.',
+                onSuccess: async (pin)=>{
+                  await setPin(pin);
+                  closeModal();
+                  showToast('PIN updated');
+                }
+              });
+            } else {
+              errorMsg='Incorrect current PIN. Please try again.'; buffer=''; draw();
+            }
+          }, 120);
+        }
+      };
+    });
+  }
+  draw();
 }
 
 function modalConfirmReset(){
@@ -2905,6 +3090,111 @@ function modalConfirmReset(){
     if(input.value.trim() !== 'RESET'){ showToast('Type RESET exactly to confirm'); input.focus(); return; }
     closeModal();
     resetAllData();
+  };
+}
+
+/* Popup listing every School Days version ever set, newest first. An entry is
+   clickable to edit only within its own 7-day grace window (canEditSchoolDayConfig);
+   past that it's shown locked, since it may already be governing real budget history. */
+function modalSchoolDaysHistory(){
+  const historyConfigs = [...state.schoolDayConfigs].sort((a,b)=> a.effectiveFrom<b.effectiveFrom?1:-1);
+  openModal(`
+    <button class="closex" id="m-close">✕</button>
+    <h3>School Days History</h3>
+    <p class="helptext" style="margin-top:-8px;margin-bottom:14px">Tap an entry to edit it — only available for 7 days after it was set. Older entries are locked so they can't shift budgets that already happened.</p>
+    <div class="receipt">
+      ${historyConfigs.map(c=>{
+        const editable = canEditSchoolDayConfig(c.createdAt);
+        const daysLabel = c.schoolDays.length ? c.schoolDays.slice().sort().map(i=>WEEKDAYS[i]).join(', ') : 'No school days';
+        return `
+        <div class="rline" ${editable? `data-edit-schoolday-config="${c.id}"` : `style="cursor:default"`}>
+          <div class="rl-left"><div class="rl-txt">
+            <div class="rl-title">${daysLabel}</div>
+            <div class="rl-sub">Effective from ${niceDate(c.effectiveFrom)}</div>
+          </div></div>
+          ${editable ? `<span class="ramt mono" style="color:var(--ink-faint);font-weight:400">Edit ›</span>` : `<span class="expiredtag">Editing period expired</span>`}
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="modalfoot" style="margin-top:16px">
+      <button class="btn btn-ghost" id="m-cancel">Close</button>
+    </div>
+  `);
+  document.getElementById('m-close').onclick = closeModal;
+  document.getElementById('m-cancel').onclick = closeModal;
+  document.querySelectorAll('[data-edit-schoolday-config]').forEach(el=>{
+    el.onclick = ()=>{
+      const cfg = state.schoolDayConfigs.find(c=>c.id===el.dataset.editSchooldayConfig);
+      if(cfg) modalEditSchoolDayConfig(cfg);
+    };
+  });
+}
+
+/* Removing a School Days history entry entirely. Guarded the same way as editing it
+   (7-day window from when it was set), plus a floor of at least one remaining
+   config — there must always be something covering every date, including dates
+   before the very first version. */
+function deleteSchoolDayConfig(id){
+  const cfg = state.schoolDayConfigs.find(c=>c.id===id);
+  if(!cfg) return;
+  if(!canEditSchoolDayConfig(cfg.createdAt)){ showToast('The 7-day editing period for this entry has expired'); return; }
+  if(state.schoolDayConfigs.length<=1){ showToast('At least one School Days configuration must remain.'); return; }
+  modalConfirmDelete({
+    title:'Delete School Days entry?',
+    lines:[
+      cfg.schoolDays.length ? cfg.schoolDays.slice().sort().map(i=>WEEKDAYS[i]).join(', ') : 'No school days',
+      `Effective from ${niceDate(cfg.effectiveFrom)}`
+    ],
+    onConfirm: ()=>{
+      state.schoolDayConfigs = state.schoolDayConfigs.filter(c=>c.id!==id);
+      state.settings.schoolDays = [...currentSchoolDaysConfig().schoolDays]; // refresh legacy mirror
+      scheduleSave(); closeModal(); render(); showToast('School Days entry deleted');
+    }
+  });
+}
+
+/* Directly corrects one existing School Days history entry — its weekdays AND its
+   effective date — in place. Distinct from applySchoolDaysChange(), which always
+   creates/updates a version effective from TODAY. This is for fixing a mistake
+   shortly after setting an entry (any entry, not just today's), and is blocked once
+   its 7-day window has passed. */
+function modalEditSchoolDayConfig(cfg){
+  if(!canEditSchoolDayConfig(cfg.createdAt)){ showToast('The 7-day editing period for this entry has expired'); return; }
+  openModal(`
+    <button class="closex" id="m-close">✕</button>
+    <h3>Edit School Days</h3>
+    <p class="helptext" style="margin-top:-8px">Editable for 7 days after being set.</p>
+    <div class="field"><label>Effective from</label><input type="date" id="esc-date" value="${cfg.effectiveFrom}"></div>
+    <div class="field">
+      <label>School days</label>
+      <div class="checkgrid" id="edit-schoolday-grid">
+        ${WEEKDAYS.map((d,i)=>`<div class="checkday ${cfg.schoolDays.includes(i)?'on':''}" data-day="${i}">${d}</div>`).join('')}
+      </div>
+    </div>
+    <div class="modalfoot" style="margin-top:16px">
+      ${state.schoolDayConfigs.length>1 ? `<button class="btn btn-danger" id="esc-delete">Delete</button>` : ''}
+      <button class="btn btn-ghost" id="m-cancel">Cancel</button>
+      <button class="btn btn-primary" id="esc-save">Save</button>
+    </div>
+  `);
+  document.getElementById('m-close').onclick = closeModal;
+  document.getElementById('m-cancel').onclick = closeModal;
+  document.querySelectorAll('#edit-schoolday-grid [data-day]').forEach(el=>{
+    el.onclick = ()=>{ el.classList.toggle('on'); };
+  });
+  const delBtn = document.getElementById('esc-delete');
+  if(delBtn) delBtn.onclick = ()=>deleteSchoolDayConfig(cfg.id);
+  document.getElementById('esc-save').onclick = ()=>{
+    if(!canEditSchoolDayConfig(cfg.createdAt)){ showToast('The 7-day editing period for this entry has expired'); closeModal(); render(); return; }
+    const newDate = document.getElementById('esc-date').value;
+    if(!newDate){ showToast('Choose an effective date'); return; }
+    const dup = state.schoolDayConfigs.find(c=>c.id!==cfg.id && c.effectiveFrom===newDate);
+    if(dup){ showToast(`Another entry already starts on ${niceDate(newDate)} — choose a different date, or edit that entry instead.`); return; }
+    const days = [...document.querySelectorAll('#edit-schoolday-grid .on')].map(el=>parseInt(el.dataset.day));
+    cfg.schoolDays = days;
+    cfg.effectiveFrom = newDate;
+    state.settings.schoolDays = [...currentSchoolDaysConfig().schoolDays]; // refresh legacy mirror to whatever now governs today
+    scheduleSave(); closeModal(); render(); showToast('School Days entry updated');
   };
 }
 
@@ -3693,9 +3983,26 @@ function wirePageEvents(tab){
 
     if(settingsView==='personal'){
       document.getElementById('settings-editprofile').onclick = ()=>modalEditProfile();
+      const addPhoneBtn = document.getElementById('settings-add-phone');
+      if(addPhoneBtn) wireInlineAddContact(addPhoneBtn, 'phone');
+      const addEmailBtn = document.getElementById('settings-add-email');
+      if(addEmailBtn) wireInlineAddContact(addEmailBtn, 'email');
+      document.querySelectorAll('[data-remove-phone]').forEach(el=>{
+        el.onclick = ()=>removeContactEntry('phone', parseInt(el.dataset.removePhone));
+      });
+      document.querySelectorAll('[data-remove-email]').forEach(el=>{
+        el.onclick = ()=>removeContactEntry('email', parseInt(el.dataset.removeEmail));
+      });
     }
     if(settingsView==='privacy'){
       document.getElementById('settings-changepin').onclick = ()=>modalChangePin();
+      document.getElementById('settings-account-recovery').onclick = ()=>{
+        modalVerifyPinThen(
+          ()=>{ modalEditSecurityQuestion(); },
+          'Enter PIN',
+          'Confirm your PIN to view or edit Account Recovery.'
+        );
+      };
       document.getElementById('settings-reset-app').onclick = ()=>modalConfirmReset();
     }
     if(settingsView==='money'){
@@ -3710,6 +4017,8 @@ function wirePageEvents(tab){
       wireMoneyBodyEvents();
     }
     if(settingsView==='schooldays'){
+      const showHistBtn = document.getElementById('schooldays-show-history');
+      if(showHistBtn) showHistBtn.onclick = ()=>modalSchoolDaysHistory();
       document.querySelectorAll('#schooldays-grid [data-day]').forEach(el=>{
         el.onclick = ()=>{ el.classList.toggle('on'); };
       });
