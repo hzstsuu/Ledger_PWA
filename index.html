@@ -1072,7 +1072,7 @@ function renderGateDetails(){
     <div class="gatecard">
       <h1 class="gate-title">Set Up Your Details</h1>
       <p class="gate-sub">Only what's needed to personalize the app and help you recover your PIN later.</p>
-      <div class="field"><label>Name</label><input type="text" id="d-name" value="${(draftProfile.name||'').replace(/"/g,'&quot;')}" placeholder="e.g. Maria Santos"></div>
+      <div class="field"><label>Name</label><input type="text" id="d-name" value="${(draftProfile.name||'').replace(/"/g,'&quot;')}" placeholder="e.g. Juan Dela Cruz"></div>
       <div class="field"><label>User Type</label>
         <select id="d-usertype">
           ${['Student','Guardian/Parent','Other'].map(o=>`<option ${draftProfile.userType===o?'selected':''}>${o}</option>`).join('')}
@@ -2259,7 +2259,6 @@ function moneySubtabHTML(k){
     <div class="grid grid-2">
       ${groupMiniCard('funds')}${groupMiniCard('scholar')}
     </div>
-    <div class="card" style="margin-top:14px;font-size:13px;color:var(--ink-soft)">Credits and Debt are tracked separately — see Variance.</div>
     `;
   }
   if(k==='transfers'){
@@ -2585,7 +2584,6 @@ function variancePage(){
       <div class="card" style="margin-bottom:10px">
         <div class="wlabel" style="color:var(--extra)">Total Credits</div>
         <div class="amount mono" style="font-size:30px;margin:6px 0">${fmt(extraBal)}</div>
-        <div class="helptext">Not part of Total Money</div>
       </div>
       ${extraHistory.length? `<div class="receipt">${extraHistory.map(h=>`
         <div class="rline" style="cursor:default">
@@ -2617,7 +2615,7 @@ function variancePage(){
         ${extraPayableTotal>0? `<button class="btn btn-danger btn-sm" id="debt-pay">Pay with Credits</button>`:''}
       </div>
 
-      <div class="sectiontitle">Overrun Debt <span style="font-weight:400;text-transform:none;color:var(--ink-faint)">· Payable only with Credits</span></div>
+      <div class="sectiontitle">Overrun Debt <span style="font-weight:400;text-transform:none;color:var(--ink-faint)"> </span></div>
       ${overrunActive.length? `<div class="receipt">${overrunActive.map(d=>`
         <div class="rline" style="cursor:default">
           <div class="rl-left">
@@ -2627,7 +2625,7 @@ function variancePage(){
           <div class="ramt debtc">${fmt(d.remaining)}</div>
         </div>`).join('')}</div>` : `<div class="receipt"><div class="empty">No active Overrun Debt.</div></div>`}
 
-      <div class="sectiontitle">Personal Debt <span style="font-weight:400;text-transform:none;color:var(--ink-faint)">· Payable only with Credits</span></div>
+      <div class="sectiontitle">Personal Debt <span style="font-weight:400;text-transform:none;color:var(--ink-faint)"> </span></div>
       ${personalActive.length? `<div class="receipt">${personalActive.map(d=>`
         <div class="rline" style="cursor:default">
           <div class="rl-left">
@@ -2638,7 +2636,7 @@ function variancePage(){
         </div>`).join('')}</div>` : `<div class="receipt"><div class="empty">No active Personal Debt.</div></div>`}
 
       <div class="sectiontitle" style="display:flex;justify-content:space-between;align-items:center">
-        <span>Normal Debt <span style="font-weight:400;text-transform:none;color:var(--ink-faint)">· Payable with Funds or Scholar Allowance</span></span>
+        <span>Normal Debt <span style="font-weight:400;text-transform:none;color:var(--ink-faint)"> </span></span>
         <button class="btn btn-ghost btn-sm" id="debt-add-normal">＋ Add</button>
       </div>
       ${borrowedActive.length? `<div class="receipt">${borrowedActive.map(d=>`
@@ -3339,7 +3337,7 @@ function modalAddBank(group){
   openModal(`
     <button class="closex" id="m-close">✕</button>
     <h3>Add ${groupLabel} E-Bank</h3>
-    <div class="field"><label>E-Bank name</label><input type="text" id="bank-name" placeholder="e.g. GCash"></div>
+    <div class="field"><label>E-Bank name</label><input type="text" id="bank-name"></div>
     <div class="modalfoot">
       <button class="btn btn-ghost" id="m-cancel">Cancel</button>
       <button class="btn btn-primary" id="bank-save">Add</button>
@@ -3452,7 +3450,7 @@ function modalIncome(group, existing){
     <div class="field"><label>Amount (₱)</label><input type="number" id="inc-amount" min="0" step="0.01" placeholder="0.00" value="${isEdit? existing.amount:''}"></div>
     <div class="field"><label>${group==='funds'?'Type':'Scholar E-Bank'}</label>${moneyNodeOnlyHTML(group, node, 'inc', fundsType)}</div>
     <div class="field"><label>Date received</label><input type="date" id="inc-date" value="${isEdit? existing.date:todayStr()}"></div>
-    <div class="field"><label>Note (optional)</label><input type="text" id="inc-note" placeholder="e.g. Weekly allowance" value="${isEdit? (existing.note||'').replace(/"/g,'&quot;'):''}"></div>
+    <div class="field"><label>Note</label><input type="text" id="inc-note" placeholder="e.g. Weekly allowance" value="${isEdit? (existing.note||'').replace(/"/g,'&quot;'):''}"></div>
     <div class="modalfoot">
       <button class="btn btn-ghost" id="m-cancel">Cancel</button>
       <button class="btn btn-primary" id="inc-save">${isEdit?'Save changes':'Add'}</button>
@@ -3632,8 +3630,8 @@ function modalExpense(existingId, prefillDate){
       </select>
     </div>
     <div class="field" id="exp-newcat-wrap" style="display:${category==='__new__'?'block':'none'}"><label>New category name</label><input type="text" id="exp-newcat"></div>
-    <div class="field"><label>Place / merchant (optional)</label><input type="text" id="exp-place" placeholder="e.g. Jollibee" value="${isEdit? (existing.place||'').replace(/"/g,'&quot;'):''}"></div>
-    <div class="field"><label>Item / description (optional)</label><input type="text" id="exp-item" placeholder="e.g. Chickenjoy meal" value="${isEdit? (existing.item||'').replace(/"/g,'&quot;'):''}"></div>
+    <div class="field"><label>Place / merchant </label><input type="text" id="exp-place" value="${isEdit? (existing.place||'').replace(/"/g,'&quot;'):''}"></div>
+    <div class="field"><label>Item / description </label><input type="text" id="exp-item" value="${isEdit? (existing.item||'').replace(/"/g,'&quot;'):''}"></div>
 
     <div class="field">
       <label>Expense Type</label>
@@ -3659,8 +3657,8 @@ function modalExpense(existingId, prefillDate){
 
     ${isWantsDebt ? '' : `<div class="field"><label>Deduct From</label>${moneyNodePickerHTML(src, 'exp-source', srcGroup)}<div class="helptext" id="exp-balance-warn" style="color:var(--debt);font-weight:600;display:none"></div></div>`}
 
-    <div class="field"><label>Notes (optional)</label><textarea id="exp-notes" placeholder="Anything to remember about this">${isEdit? (existing.notes||''):''}</textarea></div>
-    <div class="field"><label>Photo (optional)</label>
+    <div class="field"><label>Notes </label><textarea id="exp-notes" placeholder="Anything to remember about this">${isEdit? (existing.notes||''):''}</textarea></div>
+    <div class="field"><label>Photo </label>
       <input type="file" id="exp-photo" accept="image/*">
       <img id="exp-photo-preview" class="photopreview" style="${isEdit&&existing.photo?'display:block':''}" src="${isEdit&&existing.photo?existing.photo:''}">
     </div>
@@ -3925,11 +3923,11 @@ function modalAddNormalDebt(existing){
   openModal(`
     <button class="closex" id="m-close">✕</button>
     <h3>${isEdit?'Edit':'Add'} Normal Debt</h3>
-    <div class="field"><label>Borrowed from</label><input type="text" id="nd-person" placeholder="e.g. Ate Liza" value="${isEdit?(existing.person||'').replace(/"/g,'&quot;'):''}"></div>
+    <div class="field"><label>Borrowed from</label><input type="text" id="nd-person" value="${isEdit?(existing.person||'').replace(/"/g,'&quot;'):''}"></div>
     <div class="field"><label>Amount (₱)</label><input type="number" id="nd-amount" min="0" step="0.01" placeholder="0.00" value="${isEdit?existing.amount:''}"></div>
     <div class="field"><label>Date</label><input type="date" id="nd-date" value="${isEdit?existing.dateCreated:todayStr()}"></div>
-    <div class="field"><label>Reason / details (optional)</label><input type="text" id="nd-reason" placeholder="e.g. Emergency load" value="${isEdit?(existing.reason||'').replace(/"/g,'&quot;'):''}"></div>
-    <div class="field"><label>Photo (optional)</label>
+    <div class="field"><label>Reason / details </label><input type="text" id="nd-reason" value="${isEdit?(existing.reason||'').replace(/"/g,'&quot;'):''}"></div>
+    <div class="field"><label>Photo </label>
       <input type="file" id="nd-photo" accept="image/*">
       <img id="nd-photo-preview" class="photopreview" style="${isEdit&&existing.photo?'display:block':''}" src="${isEdit&&existing.photo?existing.photo:''}">
     </div>
