@@ -2347,7 +2347,7 @@ function moneySubtabHTML(k){
 function groupMiniCard(k){
   const groupLabel = k==='funds' ? 'Funds' : 'Scholar Allowance';
   const bal = k==='funds' ? computeFundsBalance() : computeScholarBalance();
-  return `<div class="card"><div class="wlabel" style="color:var(--${k==='funds'?'allowance':'scholar'})">${groupLabel} ${eyeToggle('font-size:16px;vertical-align:middle;')}</div><div class="amount mono" style="font-size:24px;margin-top:6px">${maskedFmt(bal,k)}</div></div>`;
+  return `<div class="card"><div class="wlabel" style="color:var(--${k==='funds'?'allowance':'scholar'})">${groupLabel} ${eyeToggle(k,'font-size:16px;vertical-align:middle;')}</div><div class="amount mono" style="font-size:24px;margin-top:6px">${maskedFmt(bal,k)}</div></div>`;
 }
 
 /* ============================= BUDGET ============================= */
