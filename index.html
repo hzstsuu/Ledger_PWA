@@ -495,6 +495,46 @@ table tr:last-child td{border-bottom:none;}
 .eyebtn{background:none;border:none;font-size:14px;padding:0;margin:0;line-height:1;opacity:.85;cursor:pointer;}
 .eyebtn:hover{opacity:1;}
 
+/* ---- Money sources: 3-dot manage button (sits BETWEEN the balance card and the
+   sources card, inside neither) + red circular remove icons shown only in manage mode ---- */
+.srcmanage-row{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  min-height:44px;padding:0 2px;
+}
+.srcmanage-row.none{min-height:10px;}
+.srcmanage-hint{font-size:11.5px;font-weight:600;color:var(--ink-soft);}
+.srcmanage-btn{
+  width:40px;height:40px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  background:transparent;border:none;color:var(--ink-soft);
+  transition:background .15s,color .15s;
+}
+.srcmanage-btn:hover{background:var(--card-line);color:var(--ink);}
+.srcmanage-btn.on{background:var(--ink);color:#fff;}
+.srcmanage-btn:focus-visible,.srcminus:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.srcminus{
+  position:relative;width:24px;height:24px;padding:0;border:none;background:none;
+  color:var(--debt);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;
+  animation:srcpop .16s ease;
+}
+.srcminus::after{content:'';position:absolute;inset:-10px;} /* 44px touch target */
+.srcminus svg{display:block;}
+.srcminus-spacer{display:inline-block;width:24px;height:24px;flex-shrink:0;}
+@keyframes srcpop{from{transform:scale(.6);opacity:0;}to{transform:none;opacity:1;}}
+@media (prefers-reduced-motion:reduce){.srcminus{animation:none;}}
+
+/* "No banks available" state shown by the Deduct From / transfer / income pickers.
+   Those pickers never create banks — they only point to Settings → Money. */
+.srcempty{
+  border:1px dashed var(--card-line);border-radius:12px;background:var(--paper);
+  padding:12px 14px;
+}
+.srcempty-title{font-size:13px;font-weight:700;color:var(--ink-soft);}
+.srcempty-link{
+  background:none;border:none;padding:0;margin-top:3px;
+  font-size:12.5px;font-weight:700;color:var(--scholar);text-decoration:underline;text-align:left;
+}
+
 /* ---- Onboarding / PIN gate ---- */
 .gate{
   display:none;position:fixed;inset:0;z-index:500;
@@ -589,6 +629,7 @@ let appMeta = null; // onboarding / PIN / visibility — kept separate from fina
 let unlockedThisSession = false;
 let currentTab = 'dashboard';
 let settingsView = 'menu'; // 'menu' | 'personal' | 'privacy' | 'money' | 'insights' | 'schooldays'
+let sourceEditMode = false; // Settings → Money: true while the 3-dot "remove sources" mode is on (UI-only, never persisted)
 let saveTimer = null;
 let lastSavedAt = null;
 let saveState = 'idle'; // idle | saving | saved | error
@@ -700,6 +741,7 @@ async function resetAllData(){
   appMeta = defaultAppMeta();
   visibilityState = {total:false, funds:false, scholar:false, extra:false};
   budgetViewDate = null;
+  sourceEditMode = false;
   currentTab = 'dashboard';
   settingsView = 'menu';
   startApp();
@@ -895,6 +937,9 @@ function isVisible(key){ return !!visibilityState[key]; }
 function maskedFmt(amount, key){ return isVisible(key) ? fmt(amount) : '₱ ••••••'; }
 const ICON_EYE = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 12s4-7.5 10.5-7.5S22.5 12 22.5 12s-4 7.5-10.5 7.5S1.5 12 1.5 12z"/><circle cx="12" cy="12" r="3"/></svg>`;
 const ICON_EYE_OFF = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.2C11 5.07 11.5 5 12 5c6.5 0 10.5 7 10.5 7a13.9 13.9 0 0 1-3.1 3.9M6.6 6.6C3.7 8.3 1.5 12 1.5 12s4 7 10.5 7c1.7 0 3.2-.4 4.5-1.1"/><path d="M9.9 10a3 3 0 0 0 4.2 4.2"/></svg>`;
+/* Vertical 3-dot (manage sources) and red circular minus (remove source) icons. */
+const ICON_DOTS = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>`;
+const ICON_MINUS = `<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="currentColor"/><rect x="6.5" y="10.75" width="11" height="2.5" rx="1.25" fill="#fff"/></svg>`;
 function eyeToggle(key, extraStyle){
   return `<button type="button" class="eyebtn" data-visibility="${key}" style="${extraStyle||''}" title="${isVisible(key)?'Hide':'Show'} amount" aria-label="${isVisible(key)?'Hide':'Show'} amount">${isVisible(key)?ICON_EYE:ICON_EYE_OFF}</button>`;
 }
@@ -1323,8 +1368,47 @@ function nodeGroup(key){
 }
 function fundsBankById(id){ return state.fundsBanks.find(b=>b.id===id); }
 function scholarBankById(id){ return state.scholarBanks.find(b=>b.id===id); }
+/* fundsNodes()/scholarNodes() deliberately include EVERY bank record — including banks
+   the user has since removed (those are kept with a `removedAt` stamp, see
+   removeMoneySource()). All balances are derived from these lists, so money can never
+   silently vanish from Total Money just because a source was removed from the UI.
+   The active*() helpers below are what every picker/list uses for "the sources the
+   user currently has configured in Settings → Money". */
 function fundsNodes(){ return ['cash', ...state.fundsBanks.map(b=>'fbank:'+b.id)]; }
 function scholarNodes(){ return state.scholarBanks.map(b=>'sbank:'+b.id); }
+function activeFundsBanks(){ return state.fundsBanks.filter(b=>!b.removedAt); }
+function activeScholarBanks(){ return state.scholarBanks.filter(b=>!b.removedAt); }
+function activeFundsNodes(){ return ['cash', ...activeFundsBanks().map(b=>'fbank:'+b.id)]; }
+function activeScholarNodes(){ return activeScholarBanks().map(b=>'sbank:'+b.id); }
+/* True for Cash on Hand, Credits, and any bank that hasn't been removed. */
+function nodeIsActive(key){
+  if(key==='cash' || key==='extra') return true;
+  if(key && key.startsWith('fbank:')){ const b=fundsBankById(key.slice(6)); return !!b && !b.removedAt; }
+  if(key && key.startsWith('sbank:')){ const b=scholarBankById(key.slice(6)); return !!b && !b.removedAt; }
+  return false;
+}
+/* Removed banks that still hold a non-zero balance (only possible through an edge case
+   like force-deleting income after the bank was emptied). They stay visible — flagged
+   "(removed)" — so no money is ever hidden from the person. */
+function removedNodesWithBalance(group){
+  const banks = group==='funds' ? state.fundsBanks : state.scholarBanks;
+  const p = group==='funds' ? 'fbank:' : 'sbank:';
+  return banks.filter(b=>b.removedAt && Math.abs(computeAccountBalance(p+b.id))>0.004).map(b=>p+b.id);
+}
+/* How many transaction records point at this node. Used to decide between fully
+   deleting a bank (nothing references it) and archiving it (history must keep resolving
+   its name and balance). */
+function nodeReferenceCount(key){
+  let n = 0;
+  n += state.incomeTx.filter(x=>x.node===key).length;
+  n += state.expenses.filter(e=>e.source===key).length;
+  n += state.transfers.filter(t=>t.from===key || t.to===key).length;
+  n += state.debtPayments.filter(p=>p.source===key).length;
+  return n;
+}
+function escapeHTML(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 function nodeLabel(key){
   if(key==='cash') return 'Cash on Hand';
   if(key==='extra') return 'Credits';
@@ -1339,10 +1423,12 @@ function accountLabel(key){
   const g = nodeGroup(key);
   return g==='funds' ? 'Funds' : g==='scholar' ? 'Scholar Allowance' : 'Credits';
 }
+/* Name uniqueness is checked against banks the user currently has — a removed bank's
+   name is free to be reused (the new one is a brand-new, separate source). */
 function addFundsBank(name){
   name = (name||'').trim();
   if(!name) return null;
-  if(state.fundsBanks.some(b=>b.name.toLowerCase()===name.toLowerCase())) return null;
+  if(activeFundsBanks().some(b=>b.name.toLowerCase()===name.toLowerCase())) return null;
   const b = {id:uid(), name, createdAt:Date.now()};
   state.fundsBanks.push(b);
   return b;
@@ -1350,10 +1436,39 @@ function addFundsBank(name){
 function addScholarBank(name){
   name = (name||'').trim();
   if(!name) return null;
-  if(state.scholarBanks.some(b=>b.name.toLowerCase()===name.toLowerCase())) return null;
+  if(activeScholarBanks().some(b=>b.name.toLowerCase()===name.toLowerCase())) return null;
   const b = {id:uid(), name, createdAt:Date.now()};
   state.scholarBanks.push(b);
   return b;
+}
+/* Removes an E-Bank from the person's configured money sources. Cash on Hand is
+   permanent and can never be removed.
+
+   Safety rules (the ledger is derived from transactions, so nothing is ever rewritten):
+   - A bank must be at zero before it can go. If it still holds money, the caller first
+     moves that balance out with a normal transfer (see modalRemoveSource), so Total
+     Money is untouched.
+   - Never referenced by any transaction → truly deleted from the list.
+   - Referenced by past transactions → kept in the list with a `removedAt` stamp
+     ("archived"): every historical record keeps its name and its exact effect, but the
+     bank disappears from Funds/Scholar Allowance, pickers, and default-source choices. */
+function removeMoneySource(node){
+  const g = nodeGroup(node);
+  if(node==='cash') return {ok:false, msg:"Cash on Hand is a permanent source and can't be removed."};
+  if(g!=='funds' && g!=='scholar') return {ok:false, msg:"This source can't be removed."};
+  const list = g==='funds' ? state.fundsBanks : state.scholarBanks;
+  const idx = list.findIndex(b=>b.id===node.slice(6));
+  if(idx<0 || list[idx].removedAt) return {ok:false, msg:'E-Bank not found.'};
+  const bal = computeAccountBalance(node);
+  if(Math.abs(bal)>0.005) return {ok:false, msg:`${list[idx].name} still holds ${fmt(bal)}. Move it to another source first.`};
+  if(state.settings.defaultSource===node) state.settings.defaultSource = 'cash';
+  delete visibilityState[node];
+  if(nodeReferenceCount(node)===0){
+    list.splice(idx,1);
+    return {ok:true, archived:false};
+  }
+  list[idx].removedAt = Date.now();
+  return {ok:true, archived:true};
 }
 
 /* Expense type constants + label helper */
@@ -1926,6 +2041,7 @@ function buildNav(){
     btn.onclick = ()=>{
       const goingToSettingsFresh = btn.dataset.tab==='settings' && currentTab!=='settings';
       currentTab = btn.dataset.tab;
+      sourceEditMode = false;
       if(goingToSettingsFresh) settingsView = 'menu';
       render();
     };
@@ -2139,7 +2255,7 @@ function moneyPage(){
 function moneySubtabHTML(k){
   if(k==='total'){
     return `
-    <div class="hero"><div class="eyebrow">Total Money</div><div class="amount mono">${maskedFmt(totalMoney(),'total')} ${eyeToggle('total','font-size:16px;vertical-align:middle;')}</div><div class="caption">Funds + Scholar Allowance</div></div>
+    <div class="hero"><div class="eyebrow">Total Money ${eyeToggle('total','font-size:16px;vertical-align:middle;')}</div><div class="amount mono"> ${maskedFmt(totalMoney(),'total')}</div><div class="caption"></div></div>
     <div class="grid grid-2">
       ${groupMiniCard('funds')}${groupMiniCard('scholar')}
     </div>
@@ -2165,13 +2281,28 @@ function moneySubtabHTML(k){
   }
   // k === 'funds' or 'scholar'
   const groupLabel = k==='funds' ? 'Funds' : 'Scholar Allowance';
-  const nodes = k==='funds' ? fundsNodes() : scholarNodes();
+  const activeBanks = k==='funds' ? activeFundsBanks() : activeScholarBanks();
+  const hasRemovable = activeBanks.length>0; // Cash on Hand is permanent, so only E-Banks count
+  if(sourceEditMode && !hasRemovable) sourceEditMode = false; // nothing left to manage → leave manage mode
+  const editing = sourceEditMode;
+  const nodes = k==='funds' ? activeFundsNodes() : activeScholarNodes();
+  const residual = removedNodesWithBalance(k);
   const groupBalance = k==='funds' ? computeFundsBalance() : computeScholarBalance();
-  const breakdown = nodes.map(n=>`
+
+  const minusHTML = (n)=>`<button type="button" class="srcminus" data-remove-source="${n}" aria-label="Remove ${escapeHTML(nodeLabel(n))}" title="Remove ${escapeHTML(nodeLabel(n))}">${ICON_MINUS}</button>`;
+  const sourceRow = (n, isRemovedResidual)=>{
+    // In manage mode every E-Bank gets a red circular minus on its left. Cash on Hand
+    // (and any "(removed)" leftover row) get an invisible spacer so labels stay aligned.
+    const lead = editing ? ((n!=='cash' && !isRemovedResidual) ? minusHTML(n) : `<span class="srcminus-spacer"></span>`) : '';
+    return `
     <div class="rline" style="cursor:default">
-      <div class="rl-left"><div class="rl-txt"><div class="rl-title">${nodeLabel(n)}</div></div></div>
+      <div class="rl-left">${lead}<div class="rl-txt"><div class="rl-title">${escapeHTML(nodeLabel(n))}${isRemovedResidual?' (removed)':''}</div></div></div>
       <div class="ramt mono">${maskedFmt(computeAccountBalance(n),n)} ${eyeToggle(n)}</div>
-    </div>`).join('');
+    </div>`;
+  };
+  const breakdown = (nodes.length || residual.length)
+    ? nodes.map(n=>sourceRow(n,false)).join('') + residual.map(n=>sourceRow(n,true)).join('')
+    : `<div class="empty">No E-Banks yet — tap ＋ Add E-Bank below.</div>`;
 
   const income = state.incomeTx.filter(x=>nodeGroup(x.node)===k).map(x=>({id:x.id, title:`${x.note||groupLabel} · ${nodeLabel(x.node)}`, sub:niceDate(x.date), amount:x.amount, createdAt:x.createdAt, editable:true, node:x.node, sortDate:x.date, sortTs:x.createdAt||0, transfer:false}));
   const transferIn = state.transfers.filter(t=>nodeGroup(t.to)===k).map(t=>({id:t.id, title:`Transfer in · ${nodeLabel(t.to)} ← ${nodeLabel(t.from)}`, sub:niceDate(t.date), amount:t.amount, editable:false, createdAt:t.createdAt, sortDate:t.date, sortTs:t.createdAt||0, transfer:true, dir:'in'}));
@@ -2179,9 +2310,13 @@ function moneySubtabHTML(k){
   const list = [...income, ...transferIn, ...transferOut].sort((a,b)=> b.sortDate!==a.sortDate ? (b.sortDate>a.sortDate?1:-1) : b.sortTs-a.sortTs);
 
   return `
-  <div class="card" style="margin-bottom:10px">
+  <div class="card">
     <div class="wlabel" style="color:var(--${k==='funds'?'allowance':'scholar'})">${groupLabel} ${eyeToggle(k)}</div>
     <div class="amount mono" style="font-size:32px;margin:6px 0">${maskedFmt(groupBalance,k)}</div>
+  </div>
+  <div class="srcmanage-row ${hasRemovable?'':'none'}">
+    <div class="srcmanage-hint">${editing?'Tap − to remove an E-Bank':''}</div>
+    ${hasRemovable ? `<button type="button" class="srcmanage-btn ${editing?'on':''}" id="money-manage-sources" aria-pressed="${editing}" aria-label="${editing?'Done managing sources':'Manage sources'}" title="${editing?'Done':'Manage sources'}">${ICON_DOTS}</button>` : ''}
   </div>
   <div class="receipt" style="margin-bottom:16px">${breakdown}</div>
   <div class="actionrow">
@@ -2213,7 +2348,7 @@ function moneySubtabHTML(k){
 function groupMiniCard(k){
   const groupLabel = k==='funds' ? 'Funds' : 'Scholar Allowance';
   const bal = k==='funds' ? computeFundsBalance() : computeScholarBalance();
-  return `<div class="card"><div class="wlabel" style="color:var(--${k==='funds'?'allowance':'scholar'})">${groupLabel} ${eyeToggle(k)}</div><div class="amount mono" style="font-size:24px;margin-top:6px">${maskedFmt(bal,k)}</div></div>`;
+  return `<div class="card"><div class="wlabel" style="color:var(--${k==='funds'?'allowance':'scholar'})">${groupLabel} ${eyeToggle('font-size:16px;vertical-align:middle;')}</div><div class="amount mono" style="font-size:24px;margin-top:6px">${maskedFmt(bal,k)}</div></div>`;
 }
 
 /* ============================= BUDGET ============================= */
@@ -2664,8 +2799,8 @@ function settingsPersonalPage(){
   `;
 }
 /* Inline add for a phone number or email — same swap-the-button-for-a-real-input
-   pattern as wireInlineAddBank, for the same reason: window.prompt() is unreliable
-   in sandboxed/embedded browser contexts. Adds directly to appMeta.profile (not the
+   pattern as the other inline adders, for the same reason: window.prompt() is
+   unreliable in sandboxed/embedded browser contexts. Adds directly to appMeta.profile (not the
    financial state), since contact info is part of the person's profile metadata. */
 function wireInlineAddContact(addBtn, kind){
   addBtn.onclick = ()=>{
@@ -2734,6 +2869,8 @@ function settingsPrivacyPage(){
 function settingsSchoolDaysPage(){
   const cfg = currentSchoolDaysConfig();
   const t = todayStr();
+  // Default expense source: if it points at a removed bank, show Cash on Hand instead.
+  const defSrc = nodeIsActive(state.settings.defaultSource) ? state.settings.defaultSource : 'cash';
   return `
   ${settingsSubHeader('School Days')}
   <div class="card" style="margin-bottom:16px">
@@ -2755,7 +2892,7 @@ function settingsSchoolDaysPage(){
     </div>
     <div class="field" style="margin-bottom:0">
       <label>Default expense source</label>
-      <div id="set-src-picker">${moneyNodePickerHTML(state.settings.defaultSource, 'set-src')}</div>
+      <div id="set-src-picker">${moneyNodePickerHTML(defSrc, 'set-src', nodeGroup(defSrc)||'funds')}</div>
     </div>
   </div>
   <button class="btn btn-primary" id="settings-save">Save settings</button>
@@ -2781,91 +2918,84 @@ document.getElementById('overlay').addEventListener('click', (e)=>{
   if(e.target.id==='overlay') closeModal();
 });
 
-/* Inline E-Bank creation widget. Deliberately does NOT use window.prompt() — prompt()
-   is blocked or silently no-ops in many sandboxed/embedded browser contexts (this was
-   the actual root cause of "+ Add E-Bank" appearing broken: prompt() returning null
-   made every click look like it did nothing). Instead this swaps the button itself
-   for a real text input + Add/Cancel right in place, guaranteed to work anywhere a
-   normal form input works. onCreated(bank) fires with the new bank record on success;
-   onCancel() fires if the user backs out, so the caller can restore its prior state
-   without losing any other form data already entered. */
-function wireInlineAddBank(addBtn, group, onCreated, onCancel){
-  addBtn.onclick = ()=>{
-    const wrap = document.createElement('div');
-    wrap.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:6px;width:100%;flex-wrap:wrap';
-    wrap.innerHTML = `
-      <input type="text" placeholder="${group==='funds'?'Funds':'Scholar'} E-Bank name" style="flex:1;min-width:120px;border:1px solid var(--card-line);border-radius:10px;padding:7px 10px;font-size:13px;background:var(--paper);color:var(--ink)">
-      <button type="button" class="btn btn-primary btn-sm">Add</button>
-      <button type="button" class="btn btn-ghost btn-sm">Cancel</button>
-    `;
-    addBtn.replaceWith(wrap);
-    const input = wrap.querySelector('input');
-    const [saveBtn, cancelBtn] = wrap.querySelectorAll('button');
-    input.focus();
-    const doSave = ()=>{
-      const name = input.value.trim();
-      if(!name){ input.focus(); return; }
-      const bank = group==='funds' ? addFundsBank(name) : addScholarBank(name);
-      if(!bank){ showToast('That E-Bank name already exists'); input.focus(); return; }
-      scheduleSave();
-      onCreated(bank);
-    };
-    saveBtn.onclick = doSave;
-    input.onkeydown = (e)=>{ if(e.key==='Enter'){ e.preventDefault(); doSave(); } else if(e.key==='Escape'){ onCancel(); } };
-    cancelBtn.onclick = onCancel;
-  };
+/* ---- Money-source pickers ------------------------------------------------------
+   E-Banks are created and removed in exactly ONE place: Settings → Money. Everything
+   below (Deduct From, Transfer From/To, Add Funds, Normal Debt payment, default expense
+   source) only SELECTS from the sources configured there — none of them can create a
+   bank. When a group has no banks they say so and point the person to Settings → Money. */
+
+/* Jump to Settings → Money (on the Funds or Scholar Allowance tab) — where E-Banks are
+   added/removed. Used by every "Manage sources in Settings → Money" link. */
+function goManageSources(group){
+  closeModal();
+  moneySubtab = group==='scholar' ? 'scholar' : 'funds';
+  sourceEditMode = false;
+  currentTab = 'settings';
+  settingsView = 'money';
+  render();
+  try{ window.scrollTo(0,0); }catch(e){}
+}
+function noBanksHTML(group){
+  return `<div class="srcempty">
+    <div class="srcempty-title">No banks available</div>
+    <button type="button" class="srcempty-link" data-goto-money="${group}">Manage sources in Settings → Money</button>
+  </div>`;
+}
+function wireManageSourceLinks(container){
+  (container||document).querySelectorAll('[data-goto-money]').forEach(el=>{
+    el.onclick = ()=>goManageSources(el.dataset.gotoMoney);
+  });
+}
+/* When editing a record that was paid from a since-removed bank, show that bank as the
+   (selected) current value instead of pretending nothing is chosen. */
+function removedNodePill(node){
+  return `<button type="button" class="radiopill sel" data-node="${node}">${escapeHTML(nodeLabel(node))} (removed) · ${fmt(computeAccountBalance(node))}</button>`;
 }
 
 /* Two-tier money-node picker: choose Funds vs Scholar Allowance, then the specific
-   node within that group (Cash on Hand / a Funds E-Bank, or a Scholar E-Bank).
+   node within that group (Cash on Hand + Funds E-Banks, or Scholar E-Banks).
    Credits is never offered here — it's not a valid expense/transfer/debt-payment
    funding source; it only ever moves via Variance (Surplus expenses, debt payoffs).
-   Used by the Expense "Deduct From" field, Transfer From/To, and Normal Debt payment
-   source. Renders into a container with id `${idPrefix}-group` (the Funds/Scholar
-   toggle) followed by `${idPrefix}-node` (the specific node list) — call
-   wireMoneyNodePicker() after inserting this into the DOM to attach handlers. */
-function moneyNodePickerHTML(selectedNode, idPrefix, defaultGroup){
-  const group = selectedNode ? nodeGroup(selectedNode) : (defaultGroup||'funds');
+   `group` is passed explicitly by the caller so "Scholar Allowance" can stay selected
+   even when it has no banks (and therefore no selected node yet).
+   Renders `${idPrefix}-group` (the Funds/Scholar toggle) followed by `${idPrefix}-node`
+   (the node list) — call wireMoneyNodePicker() after inserting it into the DOM. */
+function moneyNodePickerHTML(selectedNode, idPrefix, groupArg){
+  const g0 = selectedNode ? nodeGroup(selectedNode) : null;
+  const group = groupArg || ((g0==='funds'||g0==='scholar') ? g0 : 'funds');
   const groupHTML = `<div class="radiogroup" id="${idPrefix}-group">
     <button type="button" class="radiopill ${group==='funds'?'sel':''}" data-group="funds">Funds</button>
     <button type="button" class="radiopill ${group==='scholar'?'sel':''}" data-group="scholar">Scholar Allowance</button>
   </div>`;
+  const banks = group==='funds' ? activeFundsBanks() : activeScholarBanks();
+  const prefix = group==='funds' ? 'fbank:' : 'sbank:';
+  const removedSel = (selectedNode && selectedNode.startsWith(prefix) && !nodeIsActive(selectedNode)) ? removedNodePill(selectedNode) : '';
+  const bankPills = banks.map(b=>`<button type="button" class="radiopill ${selectedNode===prefix+b.id?'sel':''}" data-node="${prefix}${b.id}">${escapeHTML(b.name)} · ${fmt(computeAccountBalance(prefix+b.id))}</button>`).join('');
   let nodeHTML;
   if(group==='funds'){
     nodeHTML = `<div class="radiogroup" id="${idPrefix}-node" style="margin-top:8px">
       <button type="button" class="radiopill ${selectedNode==='cash'?'sel':''}" data-node="cash">Cash on Hand · ${fmt(computeAccountBalance('cash'))}</button>
-      ${state.fundsBanks.map(b=>`<button type="button" class="radiopill ${selectedNode==='fbank:'+b.id?'sel':''}" data-node="fbank:${b.id}">${b.name} · ${fmt(computeAccountBalance('fbank:'+b.id))}</button>`).join('')}
-      <button type="button" class="radiopill" data-addbank="funds">+ Add E-Bank</button>
+      ${removedSel}${bankPills}
     </div>`;
+  } else if(!banks.length && !removedSel){
+    nodeHTML = `<div id="${idPrefix}-node" style="margin-top:8px">${noBanksHTML('scholar')}</div>`;
   } else {
-    nodeHTML = `<div class="radiogroup" id="${idPrefix}-node" style="margin-top:8px">
-      ${state.scholarBanks.map(b=>`<button type="button" class="radiopill ${selectedNode==='sbank:'+b.id?'sel':''}" data-node="sbank:${b.id}">${b.name} · ${fmt(computeAccountBalance('sbank:'+b.id))}</button>`).join('')}
-      <button type="button" class="radiopill" data-addbank="scholar">+ Add E-Bank</button>
-      ${!state.scholarBanks.length? `<div class="helptext">Add a Scholar E-Bank first</div>`:''}
-    </div>`;
+    nodeHTML = `<div class="radiogroup" id="${idPrefix}-node" style="margin-top:8px">${removedSel}${bankPills}</div>`;
   }
   return groupHTML + nodeHTML;
 }
-/* onGroupChange(group) fires when the Funds/Scholar toggle changes; onNodeChange(node)
-   fires when a specific node is chosen (including right after creating a new E-Bank). */
+/* onGroupChange(group) fires when the Funds/Scholar toggle changes to the OTHER group;
+   onNodeChange(node) fires when a specific node is chosen. */
 function wireMoneyNodePicker(idPrefix, onGroupChange, onNodeChange){
   document.getElementById(idPrefix+'-group').querySelectorAll('[data-group]').forEach(b=>{
-    b.onclick = ()=> onGroupChange(b.dataset.group);
+    b.onclick = ()=>{ if(b.classList.contains('sel')) return; onGroupChange(b.dataset.group); };
   });
   const nodeContainer = document.getElementById(idPrefix+'-node');
+  if(!nodeContainer) return;
   nodeContainer.querySelectorAll('[data-node]').forEach(b=>{
     b.onclick = ()=> onNodeChange(b.dataset.node);
   });
-  const addBtn = nodeContainer.querySelector('[data-addbank]');
-  if(addBtn){
-    const group = addBtn.dataset.addbank;
-    const currentSel = nodeContainer.querySelector('[data-node].sel');
-    const currentNode = currentSel ? currentSel.dataset.node : null;
-    wireInlineAddBank(addBtn, group,
-      (bank)=> onNodeChange(group==='funds' ? 'fbank:'+bank.id : 'sbank:'+bank.id),
-      ()=> onNodeChange(currentNode)
-    );
-  }
+  wireManageSourceLinks(nodeContainer);
 }
 /* Node-only picker for a group that's already fixed (e.g. the "Add Funds" modal,
    where the group is implied by which button the user clicked) — no Funds/Scholar
@@ -2878,26 +3008,28 @@ function moneyNodeOnlyHTML(group, selectedNode, idPrefix, fundsType){
       <button type="button" class="radiopill ${type==='emoney'?'sel':''}" data-type="emoney">E-Money</button>
     </div>`;
     if(type==='emoney'){
-      html += `<div class="radiogroup" id="${idPrefix}-node" style="margin-top:8px">
-        ${state.fundsBanks.map(b=>`<button type="button" class="radiopill ${selectedNode==='fbank:'+b.id?'sel':''}" data-node="fbank:${b.id}">${b.name}</button>`).join('')}
-        <button type="button" class="radiopill" data-addbank="funds">+ Add E-Bank</button>
-        ${!state.fundsBanks.length? `<div class="helptext">Add a Funds E-Bank to continue</div>`:''}
-      </div>`;
+      const banks = activeFundsBanks();
+      html += banks.length
+        ? `<div class="radiogroup" id="${idPrefix}-node" style="margin-top:8px">
+            ${banks.map(b=>`<button type="button" class="radiopill ${selectedNode==='fbank:'+b.id?'sel':''}" data-node="fbank:${b.id}">${escapeHTML(b.name)}</button>`).join('')}
+          </div>`
+        : `<div id="${idPrefix}-node" style="margin-top:8px">${noBanksHTML('funds')}</div>`;
     }
     return html;
   }
-  return `<div class="radiogroup" id="${idPrefix}-node">
-    ${state.scholarBanks.map(b=>`<button type="button" class="radiopill ${selectedNode==='sbank:'+b.id?'sel':''}" data-node="sbank:${b.id}">${b.name}</button>`).join('')}
-    <button type="button" class="radiopill" data-addbank="scholar">+ Add E-Bank</button>
-    ${!state.scholarBanks.length? `<div class="helptext">Add a Scholar E-Bank to continue</div>`:''}
-  </div>`;
+  const banks = activeScholarBanks();
+  return banks.length
+    ? `<div class="radiogroup" id="${idPrefix}-node">
+        ${banks.map(b=>`<button type="button" class="radiopill ${selectedNode==='sbank:'+b.id?'sel':''}" data-node="sbank:${b.id}">${escapeHTML(b.name)}</button>`).join('')}
+      </div>`
+    : `<div id="${idPrefix}-node">${noBanksHTML('scholar')}</div>`;
 }
 function wireMoneyNodeOnly(idPrefix, group, onNodeChange, onTypeChange){
   if(group==='funds'){
     const typeContainer = document.getElementById(idPrefix+'-type');
     if(typeContainer){
       typeContainer.querySelectorAll('[data-type]').forEach(b=>{
-        b.onclick = ()=> onTypeChange(b.dataset.type);
+        b.onclick = ()=>{ if(b.classList.contains('sel')) return; onTypeChange(b.dataset.type); };
       });
     }
   }
@@ -2906,15 +3038,7 @@ function wireMoneyNodeOnly(idPrefix, group, onNodeChange, onTypeChange){
   nodeContainer.querySelectorAll('[data-node]').forEach(b=>{
     b.onclick = ()=> onNodeChange(b.dataset.node);
   });
-  const addBtn = nodeContainer.querySelector('[data-addbank]');
-  if(addBtn){
-    const currentSel = nodeContainer.querySelector('[data-node].sel');
-    const currentNode = currentSel ? currentSel.dataset.node : null;
-    wireInlineAddBank(addBtn, group,
-      (bank)=> onNodeChange(group==='funds' ? 'fbank:'+bank.id : 'sbank:'+bank.id),
-      ()=> onNodeChange(currentNode)
-    );
-  }
+  wireManageSourceLinks(nodeContainer);
 }
 
 /* Profile editing from Settings (post-onboarding). Name/User Type can be changed
@@ -3209,6 +3333,7 @@ function modalEditSchoolDayConfig(cfg){
   };
 }
 
+/* Add an E-Bank — the ONE place banks are created (Settings → Money). */
 function modalAddBank(group){
   const groupLabel = group==='funds' ? 'Funds' : 'Scholar';
   openModal(`
@@ -3235,10 +3360,91 @@ function modalAddBank(group){
   nameInput.onkeydown = (e)=>{ if(e.key==='Enter'){ e.preventDefault(); doSave(); } };
 }
 
+/* Remove an E-Bank (opened from the red minus in Settings → Money's manage mode).
+   Three situations, all handled without rewriting history or changing Total Money:
+   - Balance is zero → simple confirm. The bank is deleted outright if nothing ever
+     used it, otherwise archived so past transactions keep resolving its name.
+   - Balance is positive → the person picks where that money goes; it's recorded as a
+     normal transfer (Total Money unchanged), then the now-empty bank is removed.
+   - Balance is negative (overdrawn) → blocked with an explanation; nothing to move. */
+function modalRemoveSource(node){
+  const g = nodeGroup(node);
+  if(node==='cash'){ showToast("Cash on Hand can't be removed"); return; }
+  if(g!=='funds' && g!=='scholar') return;
+  const bank = g==='funds' ? fundsBankById(node.slice(6)) : scholarBankById(node.slice(6));
+  if(!bank || bank.removedAt) return;
+  const name = escapeHTML(bank.name);
+  const groupLabel = g==='funds' ? 'Funds' : 'Scholar Allowance';
+  const bal = computeAccountBalance(node);
+  const hasHistory = nodeReferenceCount(node) > 0;
+  const targets = [...activeFundsNodes(), ...activeScholarNodes()].filter(n=>n!==node);
+  let target = g==='funds' ? 'cash' : (activeScholarNodes().find(n=>n!==node) || 'cash');
+
+  const bodyHTML = ()=>{
+    if(bal < -0.005){
+      return `
+      <button class="closex" id="m-close">✕</button>
+      <h3>Can't remove ${name} yet</h3>
+      <p style="color:var(--ink-soft);font-size:13.5px;margin-top:-6px">${name} is overdrawn by <strong class="mono">${fmt(-bal)}</strong>, so there is no balance to move. Resolve the transactions that caused this first, then try again.</p>
+      <div class="modalfoot"><button class="btn btn-ghost" id="m-cancel">Close</button></div>`;
+    }
+    if(bal > 0.005){
+      const cross = nodeGroup(target)!==g;
+      return `
+      <button class="closex" id="m-close">✕</button>
+      <h3>Remove ${name}?</h3>
+      <p style="color:var(--ink-soft);font-size:13.5px;margin-top:-6px">${name} still holds <strong class="mono">${fmt(bal)}</strong>. Choose where to move it — it's recorded as a transfer, so your Total Money doesn't change.</p>
+      <div class="field"><label>Move balance to</label>
+        <div class="radiogroup" id="rm-targets">${targets.map(n=>`<button type="button" class="radiopill ${n===target?'sel':''}" data-rm-target="${n}">${escapeHTML(nodeLabel(n))} · ${accountLabel(n)}</button>`).join('')}</div>
+        ${cross ? `<div class="helptext">This moves the money out of ${groupLabel} and into ${accountLabel(target)}.</div>` : ''}
+      </div>
+      <div class="helptext" style="margin-bottom:8px">Past transactions stay in your history exactly as recorded.</div>
+      <div class="modalfoot">
+        <button class="btn btn-ghost" id="m-cancel">Cancel</button>
+        <button class="btn btn-danger" id="rm-confirm">Move &amp; remove</button>
+      </div>`;
+    }
+    return `
+      <button class="closex" id="m-close">✕</button>
+      <h3>Remove ${name}?</h3>
+      <p style="color:var(--ink-soft);font-size:13.5px;margin-top:-6px">${hasHistory
+        ? `${name} has past transactions. They stay in your history exactly as recorded — ${name} just won't be available for new entries.`
+        : `${name} has no transactions yet, so it will be removed completely.`}</p>
+      <div class="modalfoot">
+        <button class="btn btn-ghost" id="m-cancel">Cancel</button>
+        <button class="btn btn-danger" id="rm-confirm">Remove</button>
+      </div>`;
+  };
+  const wire = ()=>{
+    document.getElementById('m-close').onclick = closeModal;
+    document.getElementById('m-cancel').onclick = closeModal;
+    document.querySelectorAll('[data-rm-target]').forEach(b=>{
+      b.onclick = ()=>{ target = b.dataset.rmTarget; refresh(); };
+    });
+    const confirmBtn = document.getElementById('rm-confirm');
+    if(confirmBtn) confirmBtn.onclick = ()=>{
+      if(bal > 0.005){
+        const tr = doTransfer(bal, node, target, todayStr());
+        if(!tr.ok){ showToast(tr.msg); return; }
+      }
+      const res = removeMoneySource(node);
+      if(!res.ok){ showToast(res.msg); return; }
+      scheduleSave(); closeModal(); render(); showToast(`${bank.name} removed`);
+    };
+  };
+  const refresh = ()=>{ document.getElementById('modalbody').innerHTML = bodyHTML(); wire(); };
+  openModal(bodyHTML());
+  wire();
+}
+
 function modalIncome(group, existing){
   const isEdit = !!existing;
+  if(isEdit && !nodeIsActive(existing.node)){
+    showToast("This entry belongs to a removed E-Bank and can't be edited");
+    return;
+  }
   const groupLabel = group==='funds' ? 'Funds' : 'Scholar Allowance';
-  let node = isEdit ? existing.node : (group==='funds' ? 'cash' : (state.scholarBanks[0] ? 'sbank:'+state.scholarBanks[0].id : null));
+  let node = isEdit ? existing.node : (group==='funds' ? 'cash' : (activeScholarBanks()[0] ? 'sbank:'+activeScholarBanks()[0].id : null));
   let fundsType = group==='funds' ? (node && node.startsWith('fbank:') ? 'emoney' : 'cash') : null;
   const renderBody = ()=>`
     <button class="closex" id="m-close">✕</button>
@@ -3257,7 +3463,7 @@ function modalIncome(group, existing){
     document.getElementById('m-cancel').onclick = closeModal;
     wireMoneyNodeOnly('inc', group,
       (n)=>{ node=n; if(group==='funds') fundsType = n==='cash'?'cash':'emoney'; refresh(); },
-      (t)=>{ fundsType=t; node = t==='cash' ? 'cash' : (state.fundsBanks[0] ? 'fbank:'+state.fundsBanks[0].id : null); refresh(); }
+      (t)=>{ fundsType=t; node = t==='cash' ? 'cash' : (activeFundsBanks()[0] ? 'fbank:'+activeFundsBanks()[0].id : null); refresh(); }
     );
     document.getElementById('inc-save').onclick = ()=>{
       const amt = parseFloat(document.getElementById('inc-amount').value);
@@ -3295,17 +3501,22 @@ function modalIncome(group, existing){
 }
 
 function modalTransfer(){
+  const firstFunds = activeFundsBanks()[0], firstScholar = activeScholarBanks()[0];
   let from = 'cash';
-  let to = state.fundsBanks[0] ? 'fbank:'+state.fundsBanks[0].id : (state.scholarBanks[0] ? 'sbank:'+state.scholarBanks[0].id : 'cash');
+  let to = firstFunds ? 'fbank:'+firstFunds.id : (firstScholar ? 'sbank:'+firstScholar.id : 'cash');
+  let fromGroup = 'funds';
+  let toGroup = nodeGroup(to) || 'funds';
+  // First selectable node of a group (null for Scholar Allowance when it has no banks).
+  const firstNodeOf = (group)=> group==='funds' ? 'cash' : (activeScholarBanks()[0] ? 'sbank:'+activeScholarBanks()[0].id : null);
   const renderBody = ()=>`
     <button class="closex" id="m-close">✕</button>
     <h3>Transfer Money</h3>
     <p style="color:var(--ink-soft);font-size:12.5px;margin-top:-8px">Between Funds and Scholar Allowance nodes. Credits can't be transferred.</p>
-    <div class="field"><label>From</label>${moneyNodePickerHTML(from,'trf-from')}</div>
-    <div class="field"><label>To</label>${moneyNodePickerHTML(to,'trf-to')}</div>
+    <div class="field"><label>From</label>${moneyNodePickerHTML(from,'trf-from',fromGroup)}</div>
+    <div class="field"><label>To</label>${moneyNodePickerHTML(to,'trf-to',toGroup)}</div>
     <div class="field"><label>Amount (₱)</label><input type="number" id="trf-amount" min="0" step="0.01" placeholder="0.00"></div>
     <div class="field"><label>Date</label><input type="date" id="trf-date" value="${todayStr()}"></div>
-    <div class="helptext" id="trf-avail">Available in ${nodeLabel(from)}: ${fmt(computeAccountBalance(from))}</div>
+    <div class="helptext" id="trf-avail">${from ? `Available in ${nodeLabel(from)}: ${fmt(computeAccountBalance(from))}` : ''}</div>
     <div class="modalfoot" style="margin-top:14px">
       <button class="btn btn-ghost" id="m-cancel">Cancel</button>
       <button class="btn btn-primary" id="trf-save">Transfer</button>
@@ -3315,17 +3526,17 @@ function modalTransfer(){
     document.getElementById('m-close').onclick = closeModal;
     document.getElementById('m-cancel').onclick = closeModal;
     wireMoneyNodePicker('trf-from',
-      (group)=>{ from = group==='funds' ? 'cash' : (state.scholarBanks[0] ? 'sbank:'+state.scholarBanks[0].id : null); refresh(); },
-      (node)=>{ from = node; refresh(); }
+      (group)=>{ fromGroup = group; from = firstNodeOf(group); refresh(); },
+      (node)=>{ from = node; fromGroup = nodeGroup(node) || fromGroup; refresh(); }
     );
     wireMoneyNodePicker('trf-to',
-      (group)=>{ to = group==='funds' ? 'cash' : (state.scholarBanks[0] ? 'sbank:'+state.scholarBanks[0].id : null); refresh(); },
-      (node)=>{ to = node; refresh(); }
+      (group)=>{ toGroup = group; to = firstNodeOf(group); refresh(); },
+      (node)=>{ to = node; toGroup = nodeGroup(node) || toGroup; refresh(); }
     );
     document.getElementById('trf-save').onclick = ()=>{
       const amt = parseFloat(document.getElementById('trf-amount').value);
       const date = document.getElementById('trf-date').value || todayStr();
-      if(!from || !to){ showToast('Choose both accounts (add an E-Bank if needed)'); return; }
+      if(!from || !to){ showToast('Choose both accounts — add an E-Bank in Settings → Money if needed'); return; }
       const res = doTransfer(amt, from, to, date);
       if(!res.ok){ showToast(res.msg); return; }
       scheduleSave(); closeModal(); render(); showToast('Transfer complete');
@@ -3446,7 +3657,7 @@ function modalExpense(existingId, prefillDate){
     ` : ''}
     ${expenseType===SURPLUS ? `<div class="helptext" style="margin-bottom:10px">Available Credits: <strong class="mono">${fmt(computeAccountBalance('extra'))}</strong></div>` : ''}
 
-    ${isWantsDebt ? '' : `<div class="field"><label>Deduct From</label>${moneyNodePickerHTML(src, 'exp-source')}<div class="helptext" id="exp-balance-warn" style="color:var(--debt);font-weight:600;display:none"></div></div>`}
+    ${isWantsDebt ? '' : `<div class="field"><label>Deduct From</label>${moneyNodePickerHTML(src, 'exp-source', srcGroup)}<div class="helptext" id="exp-balance-warn" style="color:var(--debt);font-weight:600;display:none"></div></div>`}
 
     <div class="field"><label>Notes (optional)</label><textarea id="exp-notes" placeholder="Anything to remember about this">${isEdit? (existing.notes||''):''}</textarea></div>
     <div class="field"><label>Photo (optional)</label>
@@ -3460,7 +3671,13 @@ function modalExpense(existingId, prefillDate){
   `;
   };
 
-  let src = defaultSource;
+  // The source must be one the person still has configured in Settings → Money. If the
+  // default source points at a removed bank, fall back to Cash on Hand. (When EDITING an
+  // expense that was paid from a since-removed bank, that bank stays selected as-is.)
+  let src = (nodeIsActive(defaultSource) || (isEdit && existing.source===defaultSource)) ? defaultSource : 'cash';
+  // Which of Funds / Scholar Allowance is showing — tracked separately from `src` so
+  // Scholar Allowance can stay open (showing "No banks available") when it has no banks.
+  let srcGroup = nodeGroup(src) || 'funds';
   let photoData = isEdit? (existing.photo||null) : null;
   openModal(bodyHTML());
 
@@ -3492,8 +3709,12 @@ function modalExpense(existingId, prefillDate){
     const srcGroupContainer = document.getElementById('exp-source-group');
     if(srcGroupContainer){
       wireMoneyNodePicker('exp-source',
-        (group)=>{ src = group==='funds' ? 'cash' : (state.scholarBanks[0] ? 'sbank:'+state.scholarBanks[0].id : null); refresh(); },
-        (node)=>{ src = node; refresh(); }
+        (group)=>{
+          srcGroup = group;
+          src = group==='funds' ? 'cash' : (activeScholarBanks()[0] ? 'sbank:'+activeScholarBanks()[0].id : null);
+          refresh();
+        },
+        (node)=>{ src = node; srcGroup = nodeGroup(node) || srcGroup; refresh(); }
       );
     }
     document.getElementById('exp-type').querySelectorAll('[data-type]').forEach(b=>{
@@ -3569,7 +3790,12 @@ function modalExpense(existingId, prefillDate){
     let finalSource = null;
     if(!isWantsDebt){
       finalSource = src;
-      if(!finalSource){ showToast('Choose a money source (add an E-Bank if needed)'); return; }
+      if(!finalSource){
+        showToast(srcGroup==='scholar'
+          ? 'No Scholar Allowance banks available — add one in Settings → Money'
+          : 'Choose a money source');
+        return;
+      }
       // HARD BLOCK: you can't spend more than the selected money source actually has.
       // When editing, the expense's own previous amount is excluded first (it was already
       // deducted), so the check compares against what's really available.
@@ -3621,7 +3847,7 @@ function expenseDetailModal(id){
     ${e.place? `<div class="field"><label>Place</label><div>${e.place}</div></div>`:''}
     ${e.item? `<div class="field"><label>Item</label><div>${e.item}</div></div>`:''}
     <div class="field"><label>Date</label><div>${niceDateFull(e.date)}</div></div>
-    <div class="field"><label>Payment source</label>${e.source ? `<span class="chip ${e.source}">${accountLabel(e.source)}</span>` : `<span class="chip debt">Personal Debt (unpaid)</span>`}</div>
+    <div class="field"><label>Payment source</label>${e.source ? `<span class="chip ${nodeGroup(e.source)||''}">${accountLabel(e.source)}</span>` : `<span class="chip debt">Personal Debt (unpaid)</span>`}</div>
     ${e.notes? `<div class="field"><label>Notes</label><div>${e.notes}</div></div>`:''}
     ${e.photo? `<div class="field"><label>Photo</label><img class="photopreview" style="display:block" src="${e.photo}"></div>`:''}
     <div class="modalfoot">
@@ -3794,17 +4020,18 @@ function promptDeleteNormalDebt(id){
   });
 }
 
-/* Pay down one specific Normal (borrowed) Debt record using Allowance or Scholar Allowance. */
+/* Pay down one specific Normal (borrowed) Debt record using Funds or Scholar Allowance. */
 function modalPayNormalDebt(debtId){
   const d = state.debts.find(x=>x.id===debtId && x.debtType==='borrowed');
   if(!d) return;
   let source = 'cash';
+  let srcGroup = 'funds'; // stays 'scholar' (showing "No banks available") even when Scholar Allowance has no banks
   const bodyHTML = ()=>`
     <button class="closex" id="m-close">✕</button>
     <h3>Pay Normal Debt</h3>
     <p style="color:var(--ink-soft);font-size:13px;margin-top:-8px">${d.person||'—'}${d.reason? ' · '+d.reason:''} · Outstanding <strong class="mono">${fmt(d.remaining)}</strong></p>
-    <div class="field"><label>Pay from</label>${moneyNodePickerHTML(source,'ndp-source')}</div>
-    <div class="field"><label>Amount (₱)</label><input type="number" id="ndp-amount" min="0" step="0.01" value="${Math.min(d.remaining, computeAccountBalance(source))>0? Math.min(d.remaining, computeAccountBalance(source)):''}"></div>
+    <div class="field"><label>Pay from</label>${moneyNodePickerHTML(source,'ndp-source',srcGroup)}</div>
+    <div class="field"><label>Amount (₱)</label><input type="number" id="ndp-amount" min="0" step="0.01" value="${source && Math.min(d.remaining, computeAccountBalance(source))>0? Math.min(d.remaining, computeAccountBalance(source)):''}"></div>
     <div class="modalfoot">
       <button class="btn btn-ghost" id="m-cancel">Cancel</button>
       <button class="btn btn-danger" id="ndp-save">Confirm payment</button>
@@ -3814,13 +4041,17 @@ function modalPayNormalDebt(debtId){
     document.getElementById('m-close').onclick = closeModal;
     document.getElementById('m-cancel').onclick = closeModal;
     wireMoneyNodePicker('ndp-source',
-      (group)=>{ source = group==='funds' ? 'cash' : (state.scholarBanks[0] ? 'sbank:'+state.scholarBanks[0].id : null); refresh(); },
-      (node)=>{ source = node; refresh(); }
+      (group)=>{
+        srcGroup = group;
+        source = group==='funds' ? 'cash' : (activeScholarBanks()[0] ? 'sbank:'+activeScholarBanks()[0].id : null);
+        refresh();
+      },
+      (node)=>{ source = node; srcGroup = nodeGroup(node) || srcGroup; refresh(); }
     );
     document.getElementById('ndp-save').onclick = ()=>{
       const amt = parseFloat(document.getElementById('ndp-amount').value);
       if(!amt || amt<=0){ showToast('Enter a valid amount'); return; }
-      if(!source){ showToast('Choose a money source (add an E-Bank if needed)'); return; }
+      if(!source){ showToast('Choose a money source — add an E-Bank in Settings → Money if needed'); return; }
       const res = payNormalDebt(d.id, amt, source);
       if(!res.ok){ showToast(res.msg); return; }
       scheduleSave(); closeModal(); render(); showToast('Payment recorded');
@@ -4014,12 +4245,12 @@ function wirePageEvents(tab){
   if(tab==='settings'){
     if(settingsView==='menu'){
       document.querySelectorAll('[data-settings-nav]').forEach(el=>{
-        el.onclick = ()=>{ settingsView = el.dataset.settingsNav; render(); };
+        el.onclick = ()=>{ settingsView = el.dataset.settingsNav; sourceEditMode = false; render(); };
       });
       return;
     }
     const backBtn = document.getElementById('settings-back');
-    if(backBtn) backBtn.onclick = ()=>{ settingsView = 'menu'; render(); };
+    if(backBtn) backBtn.onclick = ()=>{ settingsView = 'menu'; sourceEditMode = false; render(); };
 
     if(settingsView==='personal'){
       document.getElementById('settings-editprofile').onclick = ()=>modalEditProfile();
@@ -4048,7 +4279,7 @@ function wirePageEvents(tab){
     if(settingsView==='money'){
       document.getElementById('money-transfer').onclick = ()=>modalTransfer();
       document.querySelectorAll('[data-sub]').forEach(b=>{
-        b.onclick = ()=>{ moneySubtab = b.dataset.sub; document.getElementById('money-body').innerHTML = moneySubtabHTML(moneySubtab);
+        b.onclick = ()=>{ moneySubtab = b.dataset.sub; sourceEditMode = false; document.getElementById('money-body').innerHTML = moneySubtabHTML(moneySubtab);
           document.querySelectorAll('[data-sub]').forEach(x=>x.classList.toggle('active', x.dataset.sub===moneySubtab));
           wireMoneyBodyEvents();
           wireVisibilityToggles();
@@ -4062,18 +4293,27 @@ function wirePageEvents(tab){
       document.querySelectorAll('#schooldays-grid [data-day]').forEach(el=>{
         el.onclick = ()=>{ el.classList.toggle('on'); };
       });
+      // Default expense source picker — selects among the sources configured in
+      // Settings → Money only (no bank creation here).
+      let defGroup = nodeGroup(nodeIsActive(state.settings.defaultSource) ? state.settings.defaultSource : 'cash') || 'funds';
+      const redrawSrcPicker = ()=>{
+        const cur = nodeIsActive(state.settings.defaultSource) ? state.settings.defaultSource : 'cash';
+        document.getElementById('set-src-picker').innerHTML = moneyNodePickerHTML(cur, 'set-src', defGroup);
+        wireSrcPicker();
+      };
       const wireSrcPicker = ()=>{
         wireMoneyNodePicker('set-src',
           (group)=>{
-            const node = group==='funds' ? 'cash' : (state.scholarBanks[0] ? 'sbank:'+state.scholarBanks[0].id : null);
-            state.settings.defaultSource = node;
-            document.getElementById('set-src-picker').innerHTML = moneyNodePickerHTML(node, 'set-src');
-            wireSrcPicker(); scheduleSave();
+            defGroup = group;
+            if(group==='funds'){ state.settings.defaultSource = 'cash'; scheduleSave(); }
+            else if(activeScholarBanks()[0]){ state.settings.defaultSource = 'sbank:'+activeScholarBanks()[0].id; scheduleSave(); }
+            redrawSrcPicker();
           },
           (node)=>{
             state.settings.defaultSource = node;
-            document.getElementById('set-src-picker').innerHTML = moneyNodePickerHTML(node, 'set-src');
-            wireSrcPicker(); scheduleSave();
+            defGroup = nodeGroup(node) || defGroup;
+            scheduleSave();
+            redrawSrcPicker();
           }
         );
       };
@@ -4089,6 +4329,12 @@ function wirePageEvents(tab){
   }
 }
 function wireMoneyBodyEvents(){
+  // 3-dot button: toggles "remove sources" mode. Red minus icons only exist while it's on.
+  const manageBtn = document.getElementById('money-manage-sources');
+  if(manageBtn) manageBtn.onclick = ()=>{ sourceEditMode = !sourceEditMode; render(); };
+  document.querySelectorAll('[data-remove-source]').forEach(el=>{
+    el.onclick = (ev)=>{ ev.stopPropagation(); modalRemoveSource(el.dataset.removeSource); };
+  });
   ['funds','scholar'].forEach(k=>{
     const btn = document.getElementById(`money-add-${k}`);
     if(btn) btn.onclick = ()=>modalIncome(k);
